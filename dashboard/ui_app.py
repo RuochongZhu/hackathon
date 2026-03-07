@@ -414,15 +414,15 @@ def server(input, output, session):
             data,
             group_key="risk_level",
             value_key="predicted_readmission_probability",
-            height_px=300,
+            height_px=340,
             selected_patient=selected_patient,
         )
         return ui.div(
             {"class": "panel-card boxplot-card"},
-            ui.div({"class": "section-title", "style": "margin-bottom:0.5rem;"}, "30-Day Readmission Box Plot"),
+            ui.div({"class": "section-title", "style": "margin-bottom:0.25rem;"}, "Readmission Probability by Risk Level"),
             ui.div(
                 {"class": "mosaic-subtitle"},
-                "Cohort by risk_level. Purple dot = selected patient (risk_score). Median, Q1, Q3, whiskers. Hover for tooltip.",
+                "Cohort distribution with selected patient. Hover for details.",
             ),
             ui.HTML(html),
         )

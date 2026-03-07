@@ -393,21 +393,16 @@ body {
 }
 
 /* ── Box plot (embedded in Shiny) ── */
-.charts-row .boxplot-card,
-.charts-row .cohort-risk-card {
-  padding: 1rem 1.15rem;
-}
-
 .boxplot-card {
-  padding: 1rem 1.15rem;
+  padding: var(--spacing-lg) var(--spacing-xl);
 }
 
 .boxplot-wrap {
   width: 100%;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(0, 0, 0, 0.015);
   overflow: hidden;
+  margin-top: var(--spacing-sm);
 }
 
 .boxplot-svg-wrap {
@@ -417,6 +412,7 @@ body {
 
 .boxplot-svg {
   display: block;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
 }
 
 /* ── Cohort risk distribution ── */
