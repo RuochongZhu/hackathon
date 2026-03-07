@@ -26,27 +26,9 @@ MODEL_CHOICES = {
 }
 
 
-def icon(name: str, size: int = 16, css_class: str = "") -> ui.Tag:
-    """Generate Lucide icon"""
-    return ui.tags.i({
-        "data-lucide": name,
-        "class": f"icon {css_class}",
-        "style": f"width:{size}px;height:{size}px;stroke-width:2;"
-    })
-
-
 def risk_badge(level: str):
     n = (level or "medium").lower()
-    icon_map = {
-        "high": "alert-triangle",
-        "medium": "alert-circle",
-        "low": "check-circle"
-    }
-    return ui.div(
-        {"class": f"badge badge-{n}"},
-        icon(icon_map.get(n, "alert-circle"), 12, "badge-icon"),
-        ui.span(n.upper())
-    )
+    return ui.span({"class": f"badge badge-{n}"}, n.upper())
 
 
 def _patient_header(data: dict) -> ui.Tag:
@@ -77,22 +59,6 @@ app_ui = ui.page_fillable(
             rel="stylesheet",
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
         ),
-        ui.tags.script(src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"),
-        ui.tags.script("""
-            document.addEventListener('DOMContentLoaded', function() {
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
-                }
-            });
-            // Re-create icons when Shiny updates the DOM
-            $(document).on('shiny:value', function() {
-                setTimeout(function() {
-                    if (typeof lucide !== 'undefined') {
-                        lucide.createIcons();
-                    }
-                }, 100);
-            });
-        """),
     ),
     ui.div(
         {"class": "hero-shell"},
@@ -105,11 +71,7 @@ app_ui = ui.page_fillable(
     ),
     ui.layout_sidebar(
         ui.sidebar(
-            ui.div(
-                {"class": "sidebar-section-label"},
-                icon("folder", 12, "section-icon"),
-                ui.span("Data")
-            ),
+            ui.div({"class": "sidebar-section-label"}, "Data"),
             ui.input_select("preset", "Cohort", {p: c["name"] for p, c in PRESET_CONFIGS.items()}, selected="baseline"),
             ui.input_select(
                 "patient_sort",
@@ -118,11 +80,7 @@ app_ui = ui.page_fillable(
                 selected="id",
             ),
             ui.output_ui("patient_selector_ui"),
-            ui.div(
-                {"class": "sidebar-section-label"},
-                icon("bot", 12, "section-icon"),
-                ui.span("AI Model")
-            ),
+            ui.div({"class": "sidebar-section-label"}, "AI Model"),
             ui.input_select("llm_model", "LLM", MODEL_CHOICES, selected="gpt-4o-mini"),
             width=260,
             open="desktop",
@@ -137,11 +95,7 @@ app_ui = ui.page_fillable(
             ui.navset_card_tab(
                 # Tab 1
                 ui.nav_panel(
-                    ui.div(
-                        {"class": "tab-label"},
-                        icon("activity", 16, "tab-icon"),
-                        ui.span("AI Risk Summary")
-                    ),
+                    "AI Risk Summary",
                     ui.div(
                         {"class": "ai-tab-stack"},
                         ui.div({"class": "panel-card ai-main-panel"}, ui.output_ui("tab1_content")),
@@ -159,11 +113,7 @@ app_ui = ui.page_fillable(
                 ),
                 # Tab 2
                 ui.nav_panel(
-                    ui.div(
-                        {"class": "tab-label"},
-                        icon("clipboard-check", 16, "tab-icon"),
-                        ui.span("AI Recommended Actions")
-                    ),
+                    "AI Recommended Actions",
                     ui.div(
                         {"class": "ai-tab-stack"},
                         ui.div({"class": "panel-card ai-main-panel"}, ui.output_ui("tab2_content")),
@@ -181,11 +131,7 @@ app_ui = ui.page_fillable(
                 ),
                 # Tab 3
                 ui.nav_panel(
-                    ui.div(
-                        {"class": "tab-label"},
-                        icon("git-compare", 16, "tab-icon"),
-                        ui.span("AI Similar Cases")
-                    ),
+                    "AI Similar Cases",
                     ui.div(
                         {"class": "ai-tab-stack"},
                         ui.div({"class": "panel-card ai-main-panel"}, ui.output_ui("tab3_content")),
@@ -305,16 +251,15 @@ def server(input, output, session):
     def hero_meta_ui():
         df = cohort_df()
         connected = db_connected()
-        db_icon = "database" if connected else "database-x"
-        db_class = "hero-icon-green" if connected else "hero-icon-red"
+        dot = "dot-green" if connected else "dot-red"
         label = "Supabase live" if connected else "CSV fallback"
         n_patients = int(df["patient_id"].nunique())
         n_high = int((df["risk_level"] == "high").sum())
         return ui.div(
             {"class": "hero-meta"},
-            ui.div({"class": "hero-meta-item"}, icon(db_icon, 14, db_class), label),
-            ui.div({"class": "hero-meta-item"}, icon("users", 14, "hero-icon"), f"{n_patients} patients"),
-            ui.div({"class": "hero-meta-item"}, icon("alert-triangle", 14, "hero-icon"), f"{n_high} high-risk"),
+            ui.div({"class": "hero-meta-item"}, ui.div({"class": f"hero-meta-dot {dot}"}), label),
+            ui.div({"class": "hero-meta-item"}, ui.div({"class": "hero-meta-dot dot-gray"}), f"{n_patients} patients"),
+            ui.div({"class": "hero-meta-item"}, ui.div({"class": "hero-meta-dot dot-gray"}), f"{n_high} high-risk"),
         )
 
     # ── Metrics ──

@@ -10,6 +10,7 @@ from app.config import OPENAI_API_KEY, OPENAI_MODEL
 from app.services.repository import get_patient_profile
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
 
 def _format_pct(value: float) -> str:
@@ -297,8 +298,12 @@ def generate_similar_analysis(profile: dict[str, Any], model: str = "", temperat
 # ── Follow-up chat ──
 
 def chat_followup(profile: dict[str, Any], history: list[dict[str, str]], user_message: str, model: str = "", temperature: float = 0.3) -> str:
-    """Continue a conversation about a patient. history is list of {role, content}."""
+    """Continue a conversation about a patient using Chat Completions API for multi-turn support."""
     model = model or OPENAI_MODEL
+    api_key = OPENAI_API_KEY.strip()
+    if not api_key:
+        return "Unable to respond: openai_api_key_missing"
+
     context = _build_context(profile)
     system = (
         "You are a clinical decision-support assistant. You are discussing a specific patient "
@@ -307,18 +312,24 @@ def chat_followup(profile: dict[str, Any], history: list[dict[str, str]], user_m
         "Do not invent data.\n\n"
         f"Patient context:\n{context}"
     )
-    messages = [
-        {"role": "system", "content": [{"type": "input_text", "text": system}]},
-    ]
+    messages = [{"role": "system", "content": system}]
     for msg in history:
-        messages.append({
-            "role": msg["role"],
-            "content": [{"type": "input_text", "text": msg["content"]}],
-        })
-    result = _call_openai(messages, model=model, temperature=temperature, max_tokens=400)
-    if "error" in result:
-        return f"Unable to respond: {result['error']}"
-    return result["text"]
+        messages.append({"role": msg["role"], "content": msg["content"]})
+
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": 400,
+    }
+    try:
+        resp = httpx.post(OPENAI_CHAT_URL, headers=headers, json=payload, timeout=20.0)
+        resp.raise_for_status()
+        body = resp.json()
+        return body["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return "Unable to respond: openai_request_failed"
 
 
 # ── Legacy wrapper (kept for API compatibility) ──
