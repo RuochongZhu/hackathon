@@ -1,14 +1,34 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 
 from app.config import PRESET_CONFIGS
-from app.schemas import DatasetArtifact, DatasetSummary, GenerateDatasetRequest
-from app.services.simulator import generate_dataset_bundle, load_model_input_summary, write_dataset_bundle
+from app.schemas import (
+    DatasetArtifact,
+    DatasetSummary,
+    DatabaseHealthResponse,
+    GenerateDatasetRequest,
+    ModelTrainingResponse,
+    PatientListResponse,
+    PatientProfileResponse,
+    PredictionSummaryResponse,
+    TrainModelRequest,
+)
+from app.services.database import test_database_connection
+from app.services.modeling import load_prediction_summary, train_baseline_model
+from app.services.repository import (
+    PatientNotFoundError,
+    PresetNotFoundError,
+    get_dashboard_summary,
+    get_high_risk_patients,
+    get_patient_profile,
+    get_similar_cases,
+)
+from app.services.simulator import generate_dataset_bundle, write_dataset_bundle
 
 
 app = FastAPI(
     title="TwinReadmit API",
-    description="Phase 0/1 scaffold for synthetic readmission-risk datasets and future digital twin workflows.",
-    version="0.1.0",
+    description="Synthetic readmission-risk API powering the TwinReadmit dashboard and future digital twin workflows.",
+    version="0.3.0",
 )
 
 
@@ -24,6 +44,15 @@ async def root() -> dict:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/database/health", response_model=DatabaseHealthResponse)
+async def database_health() -> DatabaseHealthResponse:
+    try:
+        status = test_database_connection()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database connectivity test failed: {exc}") from exc
+    return DatabaseHealthResponse(**status)
 
 
 @app.get("/datasets")
@@ -45,10 +74,10 @@ async def generate_data(request: GenerateDatasetRequest) -> DatasetSummary:
             seed=request.seed,
         )
         output_paths = write_dataset_bundle(bundle)
+        summary = get_dashboard_summary(request.preset)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    summary = load_model_input_summary(request.preset)
     summary["artifacts"] = [
         DatasetArtifact(name=key, rows=value_rows["rows"], path=value_rows["path"])
         for key, value_rows in {
@@ -62,12 +91,78 @@ async def generate_data(request: GenerateDatasetRequest) -> DatasetSummary:
     return DatasetSummary(**summary)
 
 
+@app.post("/train-model", response_model=ModelTrainingResponse)
+async def train_model(request: TrainModelRequest) -> ModelTrainingResponse:
+    try:
+        result = train_baseline_model(request.preset, write_to_db=request.write_to_db)
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{request.preset}'") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ModelTrainingResponse(**result)
+
+
+@app.get("/predictions/summary", response_model=PredictionSummaryResponse)
+async def predictions_summary(preset: str = "baseline") -> PredictionSummaryResponse:
+    try:
+        summary = load_prediction_summary(preset)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return PredictionSummaryResponse(**summary)
+
+
 @app.get("/dashboard/summary", response_model=DatasetSummary)
 async def dashboard_summary(preset: str = "baseline") -> DatasetSummary:
     try:
-        summary = load_model_input_summary(preset)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except KeyError as exc:
+        summary = get_dashboard_summary(preset)
+    except PresetNotFoundError as exc:
         raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
     return DatasetSummary(**summary)
+
+
+@app.get("/patients/high-risk", response_model=PatientListResponse)
+async def patients_high_risk(
+    preset: str = "baseline",
+    limit: int = Query(default=15, ge=1, le=50),
+    diagnosis_group: str | None = Query(default=None),
+    risk_level: str | None = Query(default=None),
+) -> PatientListResponse:
+    try:
+        patients = get_high_risk_patients(
+            preset=preset,
+            limit=limit,
+            diagnosis_group=diagnosis_group,
+            risk_level=risk_level,
+        )
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
+
+    return PatientListResponse(preset=preset, count=len(patients), patients=patients)
+
+
+@app.get("/patients/{patient_id}/profile", response_model=PatientProfileResponse)
+async def patient_profile(preset: str, patient_id: str) -> PatientProfileResponse:
+    try:
+        profile = get_patient_profile(preset=preset, patient_id=patient_id)
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
+    except PatientNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown patient '{patient_id}'") from exc
+
+    return PatientProfileResponse(**profile)
+
+
+@app.get("/patients/{patient_id}/similar-cases")
+async def patient_similar_cases(
+    preset: str,
+    patient_id: str,
+    limit: int = Query(default=3, ge=1, le=10),
+) -> dict:
+    try:
+        similar_cases = get_similar_cases(preset=preset, patient_id=patient_id, limit=limit)
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
+    except PatientNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown patient '{patient_id}'") from exc
+
+    return {"preset": preset, "patient_id": patient_id, "similar_cases": similar_cases}

@@ -616,3 +616,10 @@ The final README should include:
 - explanation of AI usage
 - limitations
 - future work
+
+
+### Phase 2 API additions
+
+- `GET /api/database/health`
+- `POST /api/train-model`
+- `GET /api/predictions/summary?preset=baseline`
