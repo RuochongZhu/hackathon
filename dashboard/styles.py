@@ -422,48 +422,56 @@ body {
 
 .cohort-risk-header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+  margin-bottom: 0.95rem;
 }
 
 .cohort-risk-subtitle {
-  font-size: var(--text-sm);
+  font-size: 0.78rem;
   color: var(--text-tertiary);
+  line-height: 1.35;
 }
 
 .cohort-risk-body {
   display: grid;
-  grid-template-columns: minmax(210px, 250px) 1fr;
-  gap: var(--spacing-lg);
-  align-items: center;
+  grid-template-columns: minmax(272px, 1.2fr) minmax(186px, 0.8fr);
+  gap: var(--spacing-md);
+  align-items: stretch;
+  min-height: 340px;
+  flex: 1;
 }
 
 .cohort-risk-donut-wrap {
   position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 340px;
+  padding: var(--spacing-sm) 0;
 }
 
 .cohort-risk-donut {
   --high-pct: 0;
-  width: 190px;
-  height: 190px;
+  width: 236px;
+  height: 236px;
   border-radius: 50%;
   position: relative;
+  margin-inline: auto;
   background: conic-gradient(
     var(--risk-high) calc(var(--high-pct) * 1%),
     #d8dee7 0
   );
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 12px 28px rgba(255, 59, 48, 0.10);
 }
 
 .cohort-risk-donut::after {
   content: "";
   position: absolute;
-  inset: 26px;
+  inset: 30px;
   border-radius: 50%;
   background: var(--surface-solid);
   border: 1px solid var(--border);
@@ -476,7 +484,7 @@ body {
 }
 
 .cohort-risk-center-value {
-  font-size: var(--text-xl);
+  font-size: clamp(1.65rem, 2.4vw, 1.95rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-primary);
@@ -484,57 +492,62 @@ body {
 }
 
 .cohort-risk-center-label {
-  font-size: var(--text-xs);
+  font-size: 0.58rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--text-tertiary);
   margin-top: var(--spacing-xs);
 }
 
 .cohort-risk-stats {
   display: grid;
-  gap: var(--spacing-sm);
+  gap: 0.42rem;
+  align-self: stretch;
+  align-content: center;
+  justify-self: end;
+  max-width: 220px;
 }
 
 .cohort-risk-stat {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-sm);
+  padding: 0.34rem 0.54rem;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.015);
+  border: 1px solid rgba(0, 0, 0, 0.055);
+  background: rgba(0, 0, 0, 0.008);
 }
 
 .cohort-risk-stat-label {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--text-sm);
+  gap: 0.34rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
+  opacity: 0.9;
 }
 
 .cohort-risk-stat-label::before {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--text-tertiary);
   flex-shrink: 0;
 }
 
 .cohort-risk-stat-value {
-  font-size: var(--text-base);
-  font-weight: 650;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .cohort-risk-stat.tone-high {
-  border-color: rgba(255, 59, 48, 0.22);
-  background: var(--risk-high-soft);
+  border-color: rgba(255, 59, 48, 0.14);
+  background: rgba(255, 59, 48, 0.05);
 }
 
 .cohort-risk-stat.tone-high .cohort-risk-stat-label::before {
@@ -542,7 +555,7 @@ body {
 }
 
 .cohort-risk-stat.tone-high .cohort-risk-stat-value {
-  color: var(--risk-high);
+  color: #cf6d67;
 }
 
 .cohort-risk-stat.tone-neutral .cohort-risk-stat-label::before {
@@ -550,8 +563,8 @@ body {
 }
 
 .cohort-risk-stat.tone-accent {
-  border-color: rgba(0, 113, 227, 0.18);
-  background: rgba(0, 113, 227, 0.08);
+  border-color: rgba(0, 113, 227, 0.12);
+  background: rgba(0, 113, 227, 0.045);
 }
 
 .cohort-risk-stat.tone-accent .cohort-risk-stat-label::before {
@@ -559,13 +572,14 @@ body {
 }
 
 .cohort-risk-stat.tone-accent .cohort-risk-stat-value {
-  color: var(--primary);
+  color: #5f84a9;
 }
 
 .cohort-risk-total {
-  margin-top: var(--spacing-xs);
-  font-size: var(--text-sm);
+  margin-top: 0.1rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
+  opacity: 0.92;
 }
 
 /* ── Panel cards ── */
@@ -1074,7 +1088,9 @@ button:focus-visible,
 @media (max-width: 1100px) {
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .profile-grid, .audit-grid { grid-template-columns: 1fr; }
-  .cohort-risk-body { grid-template-columns: 1fr; gap: var(--spacing-md); }
+  .cohort-risk-body { grid-template-columns: 1fr; gap: var(--spacing-md); min-height: 0; }
+  .cohort-risk-donut-wrap { min-height: 288px; padding-bottom: var(--spacing-sm); }
+  .cohort-risk-stats { max-width: none; width: 100%; justify-self: stretch; }
   .ai-workspace > .card.bslib-card { min-height: 680px; }
   .ai-tab-stack { grid-template-rows: minmax(430px, auto) auto; }
   .ai-main-panel { min-height: 430px; }
@@ -1091,9 +1107,10 @@ button:focus-visible,
   .hero-title { font-size: var(--text-xl); }
   .hero-panel { padding: var(--spacing-lg) var(--spacing-xl); }
   .kv-grid { grid-template-columns: 1fr; }
-  .cohort-risk-header { flex-direction: column; align-items: flex-start; gap: var(--spacing-xs); }
-  .cohort-risk-donut { width: 170px; height: 170px; }
-  .cohort-risk-donut::after { inset: 22px; }
+  .cohort-risk-header { margin-bottom: var(--spacing-sm); }
+  .cohort-risk-donut-wrap { min-height: 236px; padding-bottom: var(--spacing-sm); }
+  .cohort-risk-donut { width: 184px; height: 184px; }
+  .cohort-risk-donut::after { inset: 24px; }
   .ai-workspace > .card.bslib-card { min-height: 0; }
   .ai-workspace > .card.bslib-card > .card-body { padding: var(--spacing-md); }
   .ai-tab-stack { grid-template-rows: minmax(340px, auto) auto; gap: var(--spacing-md); }
