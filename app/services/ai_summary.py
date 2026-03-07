@@ -342,19 +342,99 @@ def generate_patient_summary(
     timeout_seconds: float = 20.0,
 ) -> dict[str, Any]:
     profile = get_patient_profile(preset=preset, patient_id=patient_id)
-    risk = generate_risk_summary(profile, temperature=temperature)
-    actions = generate_actions(profile, temperature=temperature)
-    similar = generate_similar_analysis(profile, temperature=temperature)
+    context = _build_context(profile)
+    messages = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "You are a clinical decision-support assistant. "
+                        "Return concise JSON only using the required schema."
+                    ),
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": (
+                        "Generate a JSON object with exactly these keys:\n"
+                        "{\n"
+                        '  "risk_summary": "4-6 sentence clinical summary",\n'
+                        '  "quantitative_signals": ["3-5 concrete numeric signals from patient data"],\n'
+                        '  "recommended_actions": ["3-5 specific actions"],\n'
+                        '  "watchouts": ["2-4 key risks or caveats"]\n'
+                        "}\n"
+                        "Use only the provided patient data. Return JSON only.\n\n"
+                        f"Patient data:\n{context}"
+                    ),
+                }
+            ],
+        },
+    ]
+    result = _call_openai(
+        messages=messages,
+        model=OPENAI_MODEL,
+        temperature=temperature,
+        max_tokens=max_output_tokens,
+        timeout=timeout_seconds,
+    )
+
+    fallback_summary = {
+        "risk_summary": (
+            f"Patient {profile['patient_id']} has a {profile['risk_level']} readmission risk "
+            f"of {_format_pct(profile['risk_score'])}. "
+            "Primary concerns come from recent utilization burden and discharge-risk factors."
+        ),
+        "quantitative_signals": [
+            f"Risk score: {_format_pct(profile['risk_score'])}",
+            f"Prior admissions (12m): {profile['clinical_snapshot']['prior_admissions_12m']}",
+            f"Severity score: {profile['clinical_snapshot']['severity_score']}",
+        ],
+        "recommended_actions": profile.get("recommended_actions", [])[:5]
+        or ["Maintain routine follow-up and reinforce discharge education."],
+        "watchouts": [
+            "Ensure follow-up adherence within 7 days post-discharge.",
+            "Monitor for early clinical deterioration and return-to-ED signals.",
+        ],
+    }
+
+    fallback_reason: str | None = None
+    fallback_used = False
+    summary = fallback_summary
+
+    if "error" in result:
+        fallback_reason = result["error"]
+        fallback_used = True
+    else:
+        parsed = _parse_json(result["text"])
+        required = {"risk_summary", "quantitative_signals", "recommended_actions", "watchouts"}
+        if not isinstance(parsed, dict) or not required.issubset(parsed.keys()):
+            fallback_reason = "openai_invalid_response"
+            fallback_used = True
+        else:
+            summary = {
+                "risk_summary": str(parsed["risk_summary"]).strip(),
+                "quantitative_signals": [str(x).strip() for x in parsed.get("quantitative_signals", []) if str(x).strip()],
+                "recommended_actions": [str(x).strip() for x in parsed.get("recommended_actions", []) if str(x).strip()],
+                "watchouts": [str(x).strip() for x in parsed.get("watchouts", []) if str(x).strip()],
+            }
+            if not summary["quantitative_signals"] or not summary["recommended_actions"] or not summary["watchouts"]:
+                fallback_reason = "openai_invalid_response"
+                fallback_used = True
+                summary = fallback_summary
+
     return {
         "preset": preset,
         "patient_id": patient_id,
         "source_model": {"model_name": profile["model_name"], "model_version": profile["model_version"]},
         "llm_model": OPENAI_MODEL,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "fallback_used": risk["fallback"] or actions["fallback"] or similar["fallback"],
-        "summary": {
-            "risk_summary": risk["risk_narrative"],
-            "recommended_actions": [a["action"] if isinstance(a, dict) else a for a in actions.get("actions", [])],
-            "similar_case_analysis": similar["comparison_narrative"],
-        },
+        "fallback_used": fallback_used,
+        "fallback_reason": fallback_reason,
+        "summary": summary,
     }
