@@ -66,11 +66,11 @@ def llm_status(live_check: bool = True, timeout_seconds: float = 8.0) -> dict[st
 
 def database_status(live_check: bool = False) -> dict[str, Any]:
     status = database_dsn_status()
-    if not live_check or not status.get("valid", False):
+    if not live_check:
         return {
             **status,
             "connected": False,
-            "message": status["message"] if not live_check else f"{status['message']} Live connection skipped.",
+            "message": status["message"],
         }
 
     try:

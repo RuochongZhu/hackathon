@@ -16,71 +16,62 @@ def _format_pct(value: float) -> str:
     return f"{value * 100:.1f}%"
 
 
-def _quantitative_signals(profile: dict[str, Any]) -> list[str]:
-    clinical = profile["clinical_snapshot"]
-    discharge = profile["discharge_factors"]
-    vitals = profile["vitals"]
-    return [
-        f"Predicted readmission risk: {_format_pct(float(profile['risk_score']))} ({profile['risk_level']} risk).",
-        f"Prior admissions in last 12 months: {clinical['prior_admissions_12m']}.",
-        f"Severity score: {clinical['severity_score']} with length of stay {clinical['length_of_stay']} days.",
-        f"Follow-up scheduled: {discharge['followup_scheduled']}; transportation barrier: {discharge['transportation_barrier']}.",
-        f"Abnormal vitals flag: {vitals['abnormal_vitals_flag']} (SpO2 {vitals['last_oxygen_sat']}%, HR {vitals['last_heart_rate']}).",
-    ]
+def _call_openai(messages: list[dict], model: str, temperature: float = 0.2, max_tokens: int = 600, timeout: float = 20.0) -> dict[str, Any]:
+    """Generic OpenAI Responses API call. Returns parsed JSON or error dict."""
+    api_key = OPENAI_API_KEY.strip()
+    if not api_key:
+        return {"error": "openai_api_key_missing"}
 
-
-def _fallback_summary(profile: dict[str, Any], reason: str) -> dict[str, Any]:
-    drivers = profile.get("key_drivers", [])[:4]
-    actions = profile.get("recommended_actions", [])[:5]
-    if not actions:
-        actions = ["Maintain routine follow-up and reinforce discharge education."]
-
-    driver_text = ", ".join(drivers) if drivers else "general discharge and chronic risk factors"
-    summary = {
-        "risk_summary": (
-            f"Patient {profile['patient_id']} is {profile['risk_level']} risk "
-            f"({_format_pct(float(profile['risk_score']))}) based on model output. "
-            f"Top drivers include {driver_text}."
-        ),
-        "quantitative_signals": _quantitative_signals(profile),
-        "recommended_actions": actions,
-        "watchouts": [
-            "This output is deterministic fallback content based on structured model features.",
-            f"Fallback reason: {reason}.",
-            "Use this tool for prioritization support, not as a standalone clinical diagnosis.",
-        ],
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payload = {
+        "model": model,
+        "input": messages,
+        "temperature": temperature,
+        "max_output_tokens": max_tokens,
     }
-    return summary
+
+    try:
+        resp = httpx.post(OPENAI_RESPONSES_URL, headers=headers, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        body = resp.json()
+    except httpx.TimeoutException:
+        return {"error": "openai_timeout"}
+    except httpx.HTTPError:
+        return {"error": "openai_request_failed"}
+    except ValueError:
+        return {"error": "openai_invalid_response"}
+
+    text = _extract_output_text(body)
+    if not text:
+        return {"error": "openai_empty_response"}
+
+    return {"text": text}
 
 
 def _extract_output_text(payload: dict[str, Any]) -> str:
     output_text = payload.get("output_text")
     if isinstance(output_text, str) and output_text.strip():
         return output_text.strip()
-
     parts: list[str] = []
     for item in payload.get("output", []):
         for content in item.get("content", []):
             text = content.get("text")
             if isinstance(text, str) and text.strip():
                 parts.append(text.strip())
-
     return "\n".join(parts).strip()
 
 
-def _load_summary_json(text: str) -> dict[str, Any] | None:
+def _parse_json(text: str) -> dict[str, Any] | None:
     cleaned = text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
         if cleaned.lower().startswith("json"):
             cleaned = cleaned[4:].strip()
-
     try:
         result = json.loads(cleaned)
         return result if isinstance(result, dict) else None
     except json.JSONDecodeError:
         pass
-
     start = cleaned.find("{")
     end = cleaned.rfind("}")
     if start >= 0 and end > start:
@@ -92,37 +83,7 @@ def _load_summary_json(text: str) -> dict[str, Any] | None:
     return None
 
 
-def _coerce_summary(summary_payload: dict[str, Any]) -> dict[str, Any] | None:
-    required = ["risk_summary", "quantitative_signals", "recommended_actions", "watchouts"]
-    if not all(key in summary_payload for key in required):
-        return None
-
-    risk_summary = summary_payload.get("risk_summary")
-    quantitative = summary_payload.get("quantitative_signals")
-    actions = summary_payload.get("recommended_actions")
-    watchouts = summary_payload.get("watchouts")
-
-    if not isinstance(risk_summary, str):
-        return None
-    if not isinstance(quantitative, list) or not all(isinstance(item, str) for item in quantitative):
-        return None
-    if not isinstance(actions, list) or not all(isinstance(item, str) for item in actions):
-        return None
-    if not isinstance(watchouts, list) or not all(isinstance(item, str) for item in watchouts):
-        return None
-
-    if not risk_summary.strip() or not actions:
-        return None
-
-    return {
-        "risk_summary": risk_summary.strip(),
-        "quantitative_signals": [item.strip() for item in quantitative if item.strip()],
-        "recommended_actions": [item.strip() for item in actions if item.strip()],
-        "watchouts": [item.strip() for item in watchouts if item.strip()],
-    }
-
-
-def _build_openai_request(profile: dict[str, Any], temperature: float, max_output_tokens: int) -> dict[str, Any]:
+def _build_context(profile: dict[str, Any]) -> str:
     context = {
         "patient_id": profile["patient_id"],
         "encounter_id": profile["encounter_id"],
@@ -136,106 +97,257 @@ def _build_openai_request(profile: dict[str, Any], temperature: float, max_outpu
         "vitals": profile["vitals"],
         "similar_cases": profile["similar_cases"],
     }
+    return json.dumps(context, ensure_ascii=True)
 
-    system_prompt = (
-        "You are a hospital readmission decision-support assistant. "
-        "You must not re-predict risk. Use only the provided structured data and explain it."
-    )
-    user_prompt = (
-        "Generate a concise JSON object with keys: risk_summary, quantitative_signals, "
-        "recommended_actions, watchouts.\n"
-        "Constraints:\n"
-        "- risk_summary: 2-4 sentences, explain current model risk and why.\n"
-        "- quantitative_signals: 3-5 bullet-like strings using numeric facts.\n"
-        "- recommended_actions: 3-5 practical actions for care team prioritization.\n"
-        "- watchouts: 2-3 caveats, including uncertainty and non-diagnostic limitations.\n"
-        "- Do not invent data.\n"
-        "Return JSON only, no markdown.\n\n"
-        f"Structured patient context:\n{json.dumps(context, ensure_ascii=True)}"
-    )
 
+# ── Feature 1: AI Risk Summary ──
+
+RISK_SUMMARY_SYSTEM = (
+    "You are a clinical decision-support assistant. Your job is to explain "
+    "WHY a patient is at risk for 30-day hospital readmission. "
+    "Write as if briefing a care coordination team. Be specific — reference "
+    "the patient's actual clinical data. Do not re-predict risk."
+)
+
+RISK_SUMMARY_PROMPT = (
+    "Analyze this patient and generate a JSON object:\n\n"
+    '{{\n'
+    '  "risk_narrative": "A 4-6 sentence clinical narrative explaining why this '
+    "patient is at their current risk level. Start with the patient's risk score "
+    "and level. Then explain the key risk factors: prior admissions, severity, "
+    "comorbidities, vitals, social factors (living alone, transportation, follow-up). "
+    "End with what the care team should pay most attention to. "
+    'Be specific with numbers from the data.",\n'
+    '  "key_factors": ["List the 3-5 most important risk factors as short bullet points, '
+    'each referencing a specific data point. Example: Prior admissions: 3 in last 12 months"]\n'
+    '}}\n\n'
+    "Return JSON only, no markdown.\n\n"
+    "Patient data:\n{context}"
+)
+
+
+def generate_risk_summary(profile: dict[str, Any], model: str = "", temperature: float = 0.2) -> dict[str, Any]:
+    model = model or OPENAI_MODEL
+    context = _build_context(profile)
+    messages = [
+        {"role": "system", "content": [{"type": "input_text", "text": RISK_SUMMARY_SYSTEM}]},
+        {"role": "user", "content": [{"type": "input_text", "text": RISK_SUMMARY_PROMPT.format(context=context)}]},
+    ]
+    result = _call_openai(messages, model=model, temperature=temperature)
+    if "error" in result:
+        drivers = profile.get("key_drivers", [])[:5]
+        driver_text = ", ".join(drivers) if drivers else "general clinical risk factors"
+        return {
+            "fallback": True,
+            "risk_narrative": (
+                f"Patient {profile['patient_id']} has a {profile['risk_level']} "
+                f"readmission risk of {_format_pct(profile['risk_score'])}. "
+                f"Key contributing factors include {driver_text}. "
+                f"The care team should review this patient's discharge plan."
+            ),
+            "key_factors": drivers,
+            "model": model,
+        }
+    parsed = _parse_json(result["text"])
+    if not parsed or "risk_narrative" not in parsed:
+        return {
+            "fallback": True,
+            "risk_narrative": result["text"],
+            "key_factors": profile.get("key_drivers", [])[:5],
+            "model": model,
+        }
     return {
-        "model": OPENAI_MODEL,
-        "input": [
-            {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
-            {"role": "user", "content": [{"type": "input_text", "text": user_prompt}]},
-        ],
-        "temperature": temperature,
-        "max_output_tokens": max_output_tokens,
+        "fallback": False,
+        "risk_narrative": parsed["risk_narrative"],
+        "key_factors": parsed.get("key_factors", profile.get("key_drivers", [])),
+        "model": model,
     }
 
+
+# ── Feature 2: AI Recommended Actions ──
+
+ACTIONS_SYSTEM = (
+    "You are a hospital care coordination assistant. Your job is to recommend "
+    "specific, actionable next steps for the clinical team based on a patient's "
+    "risk profile. Focus on MODIFIABLE risk factors — things the team can actually "
+    "change. Be concrete: name specific interventions, timeframes, and responsible parties."
+)
+
+ACTIONS_PROMPT = (
+    "Based on this patient's risk profile, generate a JSON object:\n\n"
+    '{{\n'
+    '  "action_plan": "A 3-4 sentence summary of the overall intervention strategy. '
+    "What is the priority? What should happen first? What's the timeline?\",\n"
+    '  "actions": [\n'
+    '    {{"action": "Specific intervention", "rationale": "Why this matters for this patient", "priority": "high/medium/low"}},\n'
+    "    ... (3-5 actions)\n"
+    "  ]\n"
+    '}}\n\n'
+    "Focus on:\n"
+    "- Follow-up scheduling if not scheduled\n"
+    "- Transportation if barrier exists\n"
+    "- Medication reconciliation if complex\n"
+    "- Vitals monitoring if abnormal\n"
+    "- Social support if living alone\n"
+    "- Care escalation if frequent admissions\n\n"
+    "Return JSON only, no markdown.\n\n"
+    "Patient data:\n{context}"
+)
+
+
+def generate_actions(profile: dict[str, Any], model: str = "", temperature: float = 0.2) -> dict[str, Any]:
+    model = model or OPENAI_MODEL
+    context = _build_context(profile)
+    messages = [
+        {"role": "system", "content": [{"type": "input_text", "text": ACTIONS_SYSTEM}]},
+        {"role": "user", "content": [{"type": "input_text", "text": ACTIONS_PROMPT.format(context=context)}]},
+    ]
+    result = _call_openai(messages, model=model, temperature=temperature)
+    if "error" in result:
+        return {
+            "fallback": True,
+            "action_plan": f"Patient {profile['patient_id']} requires targeted interventions based on their {profile['risk_level']} risk profile.",
+            "actions": [{"action": a, "rationale": "", "priority": "high"} for a in profile.get("recommended_actions", [])[:5]],
+            "model": model,
+        }
+    parsed = _parse_json(result["text"])
+    if not parsed or "actions" not in parsed:
+        return {
+            "fallback": True,
+            "action_plan": result["text"],
+            "actions": [{"action": a, "rationale": "", "priority": "high"} for a in profile.get("recommended_actions", [])[:5]],
+            "model": model,
+        }
+    return {
+        "fallback": False,
+        "action_plan": parsed.get("action_plan", ""),
+        "actions": parsed.get("actions", []),
+        "model": model,
+    }
+
+
+# ── Feature 3: AI Similar Case Comparison ──
+
+SIMILAR_SYSTEM = (
+    "You are a clinical analytics assistant. Your job is to compare a patient "
+    "to similar historical cases and explain what those comparisons mean for "
+    "the patient's likely trajectory. Focus on outcomes — did similar patients "
+    "get readmitted? What patterns emerge?"
+)
+
+SIMILAR_PROMPT = (
+    "Compare this patient to their similar historical cases and generate a JSON object:\n\n"
+    '{{\n'
+    '  "comparison_narrative": "A 4-6 sentence analysis comparing this patient to the '
+    "similar cases. For each similar case, note: their risk level, whether they were "
+    "readmitted, and what they share with the current patient. End with what this "
+    'pattern suggests for the current patient\'s outcome.",\n'
+    '  "pattern_insight": "One sentence summarizing the key takeaway from the comparison."\n'
+    '}}\n\n'
+    "Return JSON only, no markdown.\n\n"
+    "Patient data:\n{context}"
+)
+
+
+def generate_similar_analysis(profile: dict[str, Any], model: str = "", temperature: float = 0.2) -> dict[str, Any]:
+    model = model or OPENAI_MODEL
+    context = _build_context(profile)
+    similar = profile.get("similar_cases", [])
+    messages = [
+        {"role": "system", "content": [{"type": "input_text", "text": SIMILAR_SYSTEM}]},
+        {"role": "user", "content": [{"type": "input_text", "text": SIMILAR_PROMPT.format(context=context)}]},
+    ]
+    result = _call_openai(messages, model=model, temperature=temperature)
+    if "error" in result:
+        if similar:
+            ids = ", ".join(c["patient_id"] for c in similar[:3])
+            readmitted = sum(1 for c in similar if c.get("readmitted_30d"))
+            return {
+                "fallback": True,
+                "comparison_narrative": (
+                    f"Patient {profile['patient_id']} has {len(similar)} similar historical cases ({ids}). "
+                    f"Of these, {readmitted} were readmitted within 30 days. "
+                    f"This pattern suggests {'elevated' if readmitted > 0 else 'moderate'} risk for this patient."
+                ),
+                "pattern_insight": f"{readmitted} of {len(similar)} similar patients were readmitted.",
+                "model": model,
+            }
+        return {
+            "fallback": True,
+            "comparison_narrative": "No similar historical cases available for comparison.",
+            "pattern_insight": "",
+            "model": model,
+        }
+    parsed = _parse_json(result["text"])
+    if not parsed or "comparison_narrative" not in parsed:
+        return {
+            "fallback": True,
+            "comparison_narrative": result["text"],
+            "pattern_insight": "",
+            "model": model,
+        }
+    return {
+        "fallback": False,
+        "comparison_narrative": parsed["comparison_narrative"],
+        "pattern_insight": parsed.get("pattern_insight", ""),
+        "model": model,
+    }
+
+
+# ── Follow-up chat ──
+
+def chat_followup(profile: dict[str, Any], history: list[dict[str, str]], user_message: str, model: str = "", temperature: float = 0.3) -> str:
+    """Continue a conversation about a patient. history is list of {role, content}."""
+    model = model or OPENAI_MODEL
+    context = _build_context(profile)
+    system = (
+        "You are a clinical decision-support assistant. You are discussing a specific patient "
+        "with a care team member. Answer questions about this patient's risk, interventions, "
+        "or similar cases using ONLY the provided data. Be concise and clinical. "
+        "Do not invent data.\n\n"
+        f"Patient context:\n{context}"
+    )
+    messages = [
+        {"role": "system", "content": [{"type": "input_text", "text": system}]},
+    ]
+    for msg in history:
+        messages.append({
+            "role": msg["role"],
+            "content": [{"type": "input_text", "text": msg["content"]}],
+        })
+    messages.append({
+        "role": "user",
+        "content": [{"type": "input_text", "text": user_message}],
+    })
+    result = _call_openai(messages, model=model, temperature=temperature, max_tokens=400)
+    if "error" in result:
+        return f"Unable to respond: {result['error']}"
+    return result["text"]
+
+
+# ── Legacy wrapper (kept for API compatibility) ──
 
 def generate_patient_summary(
     preset: str,
     patient_id: str,
     temperature: float = 0.2,
-    max_output_tokens: int = 500,
+    max_output_tokens: int = 600,
     timeout_seconds: float = 20.0,
 ) -> dict[str, Any]:
     profile = get_patient_profile(preset=preset, patient_id=patient_id)
-    generated_at = datetime.now(timezone.utc).isoformat()
-    source_model = {
-        "model_name": profile["model_name"],
-        "model_version": profile["model_version"],
-    }
-
-    def fallback(reason: str) -> dict[str, Any]:
-        return {
-            "preset": preset,
-            "patient_id": patient_id,
-            "source_model": source_model,
-            "llm_model": OPENAI_MODEL,
-            "generated_at": generated_at,
-            "fallback_used": True,
-            "fallback_reason": reason,
-            "summary": _fallback_summary(profile, reason=reason),
-        }
-
-    api_key = OPENAI_API_KEY.strip()
-    if not api_key:
-        return fallback("openai_api_key_missing")
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = _build_openai_request(profile, temperature=temperature, max_output_tokens=max_output_tokens)
-
-    try:
-        response = httpx.post(
-            OPENAI_RESPONSES_URL,
-            headers=headers,
-            json=payload,
-            timeout=timeout_seconds,
-        )
-        response.raise_for_status()
-        body = response.json()
-    except httpx.TimeoutException:
-        return fallback("openai_timeout")
-    except httpx.HTTPError:
-        return fallback("openai_request_failed")
-    except ValueError:
-        return fallback("openai_invalid_json_response")
-
-    output_text = _extract_output_text(body)
-    if not output_text:
-        return fallback("openai_empty_response")
-
-    structured = _load_summary_json(output_text)
-    if structured is None:
-        return fallback("openai_non_json_response")
-
-    summary = _coerce_summary(structured)
-    if summary is None:
-        return fallback("openai_invalid_summary_shape")
-
+    risk = generate_risk_summary(profile, temperature=temperature)
+    actions = generate_actions(profile, temperature=temperature)
+    similar = generate_similar_analysis(profile, temperature=temperature)
     return {
         "preset": preset,
         "patient_id": patient_id,
-        "source_model": source_model,
+        "source_model": {"model_name": profile["model_name"], "model_version": profile["model_version"]},
         "llm_model": OPENAI_MODEL,
-        "generated_at": generated_at,
-        "fallback_used": False,
-        "fallback_reason": None,
-        "summary": summary,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "fallback_used": risk["fallback"] or actions["fallback"] or similar["fallback"],
+        "summary": {
+            "risk_summary": risk["risk_narrative"],
+            "recommended_actions": [a["action"] if isinstance(a, dict) else a for a in actions.get("actions", [])],
+            "similar_case_analysis": similar["comparison_narrative"],
+        },
     }

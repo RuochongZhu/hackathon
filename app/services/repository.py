@@ -9,6 +9,10 @@ import pandas as pd
 from app.config import DATASETS_DIR, PREDICTIONS_DIR, PRESET_CONFIGS
 from app.services.simulator import generate_dataset_bundle, write_dataset_bundle
 
+import logging
+
+_log = logging.getLogger(__name__)
+
 RISK_THRESHOLDS = {
     "high": 0.65,
     "medium": 0.35,
@@ -63,6 +67,39 @@ def _risk_level(probability: float) -> str:
     if probability >= RISK_THRESHOLDS["medium"]:
         return "medium"
     return "low"
+
+
+def load_from_supabase(preset: str | None = None) -> pd.DataFrame | None:
+    """Fetch from Supabase joined_readmission_dataset view. Returns None on failure."""
+    try:
+        from app.services.supabase_rest import fetch_joined_dataset
+        df = fetch_joined_dataset(limit=3000)
+        if df.empty:
+            return None
+        # Derive columns expected by downstream code
+        df["active_risk_probability"] = pd.to_numeric(
+            df["predicted_readmission_probability"], errors="coerce"
+        ).fillna(0.0)
+        df["simulated_readmission_probability"] = df["active_risk_probability"]
+        if "risk_level" not in df.columns or df["risk_level"].isna().all():
+            df["risk_level"] = df["active_risk_probability"].apply(_risk_level)
+        df["risk_level"] = df["risk_level"].fillna(
+            df["active_risk_probability"].apply(_risk_level)
+        )
+        if "model_name" not in df.columns:
+            df["model_name"] = "logistic_regression"
+        if "model_version" not in df.columns:
+            df["model_version"] = "baseline-logreg-v1"
+        if "generated_at" not in df.columns:
+            df["generated_at"] = None
+        if "preset" not in df.columns:
+            df["preset"] = preset or "supabase"
+        df["recommended_action"] = df.apply(_recommended_action_label, axis=1)
+        _log.info("Loaded %d rows from Supabase", len(df))
+        return df
+    except Exception as exc:
+        _log.debug("Supabase load failed: %s", exc)
+        return None
 
 
 def _prediction_path(preset: str) -> Path:
@@ -123,6 +160,11 @@ def _recommended_action_label(row: pd.Series) -> str:
 
 
 def load_model_input(preset: str) -> pd.DataFrame:
+    # Try Supabase first
+    supa_df = load_from_supabase(preset)
+    if supa_df is not None and not supa_df.empty:
+        return supa_df
+
     path = ensure_dataset_exists(preset)
     if not path.exists():
         raise DatasetNotFoundError(f"Dataset preset '{preset}' has not been generated yet")

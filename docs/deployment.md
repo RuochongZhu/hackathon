@@ -40,4 +40,6 @@ If you want a different app name or branch later, update `.github/workflows/depl
 ## Database Note
 
 - `DATABASE_URL` must be a PostgreSQL connection string from the Supabase `Connect` panel, not the project `https://...supabase.co` URL.
+- If direct PostgreSQL DNS is blocked in your runtime, API health and prediction writes automatically fall back to Supabase REST when `SUPABASE_URL` + keys are configured.
+- To enable prediction persistence, create table `public.readmission_predictions` once using [`docs/sql/readmission_predictions.sql`](sql/readmission_predictions.sql).
 - After deployment, verify database config with `/api/database/health`.
