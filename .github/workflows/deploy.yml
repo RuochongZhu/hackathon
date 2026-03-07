@@ -35,9 +35,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      DO_DEPLOY_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN || secrets.DO_API_TOKEN || secrets.DIGITALOCEAN_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate DigitalOcean token
+        run: |
+          if [ -z "${DO_DEPLOY_TOKEN}" ]; then
+            echo "Missing DigitalOcean deploy token."
+            echo "Set one of these GitHub secrets: DIGITALOCEAN_ACCESS_TOKEN, DO_API_TOKEN, DIGITALOCEAN_TOKEN"
+            exit 1
+          fi
 
       - name: Deploy app
         uses: digitalocean/app_action/deploy@v2
@@ -52,7 +62,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           APP_REVISION: ${{ github.sha }}
         with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          token: ${{ env.DO_DEPLOY_TOKEN }}
           app_spec_location: .do/app.yaml
           print_build_logs: true
           print_deploy_logs: true

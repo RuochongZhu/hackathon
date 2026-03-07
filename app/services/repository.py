@@ -369,7 +369,14 @@ def get_high_risk_patients(
     top = df.sort_values("active_risk_probability", ascending=False).head(limit).copy()
     top["predicted_readmission_probability"] = top["active_risk_probability"].round(4)
 
-    return top[columns].to_dict(orient="records")
+    records = top[columns].to_dict(orient="records")
+    for item in records:
+        item["age"] = int(item["age"])
+        item["prior_admissions_12m"] = int(item["prior_admissions_12m"])
+        # Supabase-backed rows can carry decimal severity; API contract expects int.
+        item["severity_score"] = int(round(float(item["severity_score"])))
+        item["readmitted_30d"] = int(item["readmitted_30d"])
+    return records
 
 
 def _cohort_medians(df: pd.DataFrame) -> dict[str, float]:
