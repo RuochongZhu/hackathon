@@ -8,9 +8,17 @@ import shinyswatch
 from shiny import App, reactive, render, ui
 
 # Ensure imports work both when running from repo root and from dashboard/ as app dir.
+# Keep repo root first so `app.*` resolves to the backend package, not dashboard/app.py.
+THIS_DIR = Path(__file__).resolve().parent
 ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+root_str = str(ROOT_DIR)
+this_str = str(THIS_DIR)
+if root_str in sys.path:
+    sys.path.remove(root_str)
+sys.path.insert(0, root_str)
+if this_str in sys.path:
+    sys.path.remove(this_str)
+sys.path.append(this_str)
 
 from app.config import PRESET_CONFIGS
 from app.services.ai_summary import (

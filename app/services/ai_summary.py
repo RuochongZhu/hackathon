@@ -312,9 +312,15 @@ def chat_followup(profile: dict[str, Any], history: list[dict[str, str]], user_m
         "Do not invent data.\n\n"
         f"Patient context:\n{context}"
     )
+    # Keep only recent turns to avoid request failures from oversized prompts.
+    recent_history = [m for m in history if m.get("role") in {"user", "assistant"} and m.get("content")]
+    recent_history = recent_history[-12:]
+
     messages = [{"role": "system", "content": system}]
-    for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
+    for msg in recent_history:
+        messages.append({"role": msg["role"], "content": str(msg["content"])})
+    if not recent_history or recent_history[-1].get("role") != "user":
+        messages.append({"role": "user", "content": user_message})
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
@@ -327,9 +333,20 @@ def chat_followup(profile: dict[str, Any], history: list[dict[str, str]], user_m
         resp = httpx.post(OPENAI_CHAT_URL, headers=headers, json=payload, timeout=20.0)
         resp.raise_for_status()
         body = resp.json()
+    except httpx.TimeoutException:
+        return "Unable to respond: openai_timeout"
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text.strip() if exc.response is not None else ""
+        if len(detail) > 120:
+            detail = f"{detail[:117]}..."
+        return f"Unable to respond: openai_http_error {exc.response.status_code if exc.response is not None else ''} {detail}".strip()
+    except Exception as exc:
+        return f"Unable to respond: openai_request_failed {exc.__class__.__name__}"
+
+    try:
         return body["choices"][0]["message"]["content"].strip()
     except Exception:
-        return "Unable to respond: openai_request_failed"
+        return "Unable to respond: openai_empty_response"
 
 
 # ── Legacy wrapper (kept for API compatibility) ──
