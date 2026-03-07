@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+# Force load .env file, override existing environment variables
+load_dotenv(BASE_DIR / ".env", override=True)
 
 DATASETS_DIR = BASE_DIR / "data" / "datasets"
 PREDICTIONS_DIR = BASE_DIR / "data" / "predictions"
