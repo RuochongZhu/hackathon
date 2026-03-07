@@ -414,18 +414,18 @@ def boxplot_svg_html(
                 # dashed connector line
                 parts.append(
                     f'<line x1="{cx_pt + box_width / 2 + 2}" y1="{cy_pt}" x2="{label_x - 2}" y2="{cy_pt}" '
-                    f'stroke="#7c3aed" stroke-width="1" stroke-dasharray="3,2" opacity="0.6"/>'
+                    f'stroke="#7c3aed" stroke-width="1.25" stroke-dasharray="4,2" opacity="0.72"/>'
                 )
                 # diamond marker on the box
-                d = 5
+                d = 5.6
                 parts.append(
                     f'<polygon points="{cx_pt},{cy_pt - d} {cx_pt + d},{cy_pt} {cx_pt},{cy_pt + d} {cx_pt - d},{cy_pt}" '
-                    f'fill="#7c3aed" stroke="#fff" stroke-width="1.5"/>'
+                    f'fill="#7c3aed" stroke="#fff" stroke-width="1.8"/>'
                 )
                 # label block on the right
                 label = pid if len(pid) <= 8 else pid[:6] + "…"
-                parts.append(f'<text x="{label_x}" y="{cy_pt - 5}" font-size="9" font-weight="600" fill="#5b21b6">{label}</text>')
-                parts.append(f'<text x="{label_x}" y="{cy_pt + 6}" font-size="8" fill="#7c3aed">{fmt(val)}</text>')
+                parts.append(f'<text x="{label_x}" y="{cy_pt - 5.5}" font-size="9.5" font-weight="620" fill="#5b21b6">{label}</text>')
+                parts.append(f'<text x="{label_x}" y="{cy_pt + 7}" font-size="8.5" font-weight="520" fill="#7c3aed">{fmt(val)}</text>')
         except (TypeError, ValueError, KeyError):
             pass
 

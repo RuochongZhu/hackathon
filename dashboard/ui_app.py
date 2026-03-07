@@ -142,7 +142,7 @@ app_ui = ui.page_fillable(
                 ui.span("AI Model")
             ),
             ui.input_select("llm_model", "LLM", MODEL_CHOICES, selected="gpt-4o-mini"),
-            width=260,
+            width=236,
             open="desktop",
         ),
         ui.div(
@@ -351,15 +351,40 @@ def server(input, output, session):
         high = int((df["risk_level"] == "high").sum())
         avg = float(df["active_risk_probability"].mean())
         patient_risk = f"{data['risk_score']:.1%}" if data else "—"
-        cards = [
-            ("Cohort", str(n), "patients"),
-            ("High-risk", str(high), "need intervention"),
-            ("Avg risk", f"{avg:.1%}", "cohort mean"),
-            ("Selected", patient_risk, data.get("patient_id", "—")),
-        ]
+        selected_level = str(data.get("risk_level", "unknown")).lower() if data else "unknown"
+        selected_level_label = {
+            "high": "High Risk",
+            "medium": "Medium Risk",
+            "low": "Low Risk",
+        }.get(selected_level, "No Selection")
+        selected_patient_note = f"Patient {data['patient_id']}" if data else "Select a patient"
         return ui.div(
             {"class": "metric-grid"},
-            *[ui.div({"class": "metric-card"}, ui.div({"class": "metric-label"}, l), ui.div({"class": "metric-value"}, v), ui.div({"class": "metric-footnote"}, n)) for l, v, n in cards],
+            ui.div(
+                {"class": "metric-card"},
+                ui.div({"class": "metric-label"}, "Cohort"),
+                ui.div({"class": "metric-value"}, str(n)),
+                ui.div({"class": "metric-footnote"}, "Total patients"),
+            ),
+            ui.div(
+                {"class": "metric-card"},
+                ui.div({"class": "metric-label"}, "High-risk"),
+                ui.div({"class": "metric-value"}, str(high)),
+                ui.div({"class": "metric-footnote"}, "Need intervention"),
+            ),
+            ui.div(
+                {"class": "metric-card"},
+                ui.div({"class": "metric-label"}, "Avg risk"),
+                ui.div({"class": "metric-value"}, f"{avg:.1%}"),
+                ui.div({"class": "metric-footnote"}, "Cohort mean"),
+            ),
+            ui.div(
+                {"class": f"metric-card metric-card-selected tone-{selected_level}"},
+                ui.div({"class": "metric-label"}, "Selected"),
+                ui.div({"class": "metric-value"}, patient_risk),
+                ui.div({"class": f"metric-risk-tag tone-{selected_level}"}, selected_level_label),
+                ui.div({"class": "metric-footnote metric-footnote-muted"}, selected_patient_note),
+            ),
         )
 
     @reactive.calc
@@ -430,14 +455,14 @@ def server(input, output, session):
             data,
             group_key="risk_level",
             value_key="predicted_readmission_probability",
-            height_px=340,
+            height_px=356,
             selected_patient=selected_patient,
         )
         return ui.div(
             {"class": "panel-card boxplot-card"},
             ui.div({"class": "section-title", "style": "margin-bottom:0.25rem;"}, "Readmission Probability by Risk Level"),
             ui.div(
-                {"class": "mosaic-subtitle"},
+                {"class": "mosaic-subtitle boxplot-subtitle"},
                 "Cohort distribution with selected patient. Hover for details.",
             ),
             ui.HTML(html),
