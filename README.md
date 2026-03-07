@@ -499,6 +499,46 @@ Draft the AI prompt template for patient summary generation.
 
 ---
 
+## Current Scaffold Status
+
+### Phase 0 / Phase 1 Completed
+- FastAPI scaffold is prepared in `app/`
+- synthetic dataset generator is prepared in `app/services/simulator.py`
+- small demo datasets are generated under `data/datasets/`
+- codebook is documented in `docs/codebook.md`
+- initial tests are available in `tests/test_simulator.py`
+
+### Quick Start
+
+Install dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Generate demo datasets:
+
+```bash
+python scripts/generate_datasets.py
+```
+
+Run the API:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Useful endpoints:
+- `GET /`
+- `GET /health`
+- `GET /datasets`
+- `POST /generate-data`
+- `GET /dashboard/summary?preset=baseline`
+
+---
+
 ## Suggested Team Split
 
 ### Data Engineer
