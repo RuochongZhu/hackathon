@@ -73,9 +73,14 @@ def load_from_supabase(preset: str | None = None) -> pd.DataFrame | None:
     """Fetch from Supabase joined_readmission_dataset view. Returns None on failure."""
     try:
         from app.services.supabase_rest import fetch_joined_dataset
-        df = fetch_joined_dataset(limit=3000)
+        df = fetch_joined_dataset(preset=preset, limit=3000)
         if df.empty:
             return None
+        # Client-side filter as safety net
+        if preset and "preset" in df.columns:
+            df = df[df["preset"] == preset]
+            if df.empty:
+                return None
         # Derive columns expected by downstream code
         df["active_risk_probability"] = pd.to_numeric(
             df["predicted_readmission_probability"], errors="coerce"
