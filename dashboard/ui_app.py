@@ -12,10 +12,12 @@ from app.services.ai_summary import (
     generate_similar_analysis,
 )
 from app.services.repository import (
+    get_boxplot_data,
     get_patient_profile,
     load_model_input,
 )
 from app.services.supabase_rest import test_rest_connection
+from dashboard.charts import boxplot_svg_html
 from dashboard.styles import CUSTOM_CSS
 
 MODEL_CHOICES = {
@@ -130,7 +132,12 @@ app_ui = ui.page_fillable(
         ui.div(
             {"class": "overview-shell"},
             ui.output_ui("metric_cards"),
-            ui.output_ui("cohort_risk_distribution"),
+            # pull 的 cohort 图 + 箱线图同一排
+            ui.div(
+                {"class": "charts-row"},
+                ui.output_ui("cohort_risk_distribution"),
+                ui.output_ui("boxplot_ui"),
+            ),
         ),
         ui.div(
             {"class": "ai-workspace"},
@@ -386,6 +393,38 @@ def server(input, output, session):
                     ui.div({"class": "cohort-risk-total"}, f"Cohort total: {stats['cohort_total']} patients"),
                 ),
             ),
+        )
+
+    @output
+    @render.ui
+    def boxplot_ui():
+        try:
+            data = get_boxplot_data(input.preset())
+        except Exception:
+            data = None
+        data_profile = profile()
+        selected_patient = None
+        if data_profile:
+            selected_patient = {
+                "patient_id": data_profile["patient_id"],
+                "risk_level": data_profile["risk_level"],
+                "value": data_profile["risk_score"],
+            }
+        html = boxplot_svg_html(
+            data,
+            group_key="risk_level",
+            value_key="predicted_readmission_probability",
+            height_px=340,
+            selected_patient=selected_patient,
+        )
+        return ui.div(
+            {"class": "panel-card boxplot-card"},
+            ui.div({"class": "section-title", "style": "margin-bottom:0.25rem;"}, "Readmission Probability by Risk Level"),
+            ui.div(
+                {"class": "mosaic-subtitle"},
+                "Cohort distribution with selected patient. Hover for details.",
+            ),
+            ui.HTML(html),
         )
 
     # ── Tab 1: AI Risk Summary ──
