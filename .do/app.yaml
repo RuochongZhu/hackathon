@@ -71,6 +71,22 @@ services:
         value: ${OPENAI_API_KEY}
         type: SECRET
         scope: RUN_TIME
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+        type: SECRET
+        scope: RUN_TIME
+      - key: SUPABASE_URL
+        value: ${SUPABASE_URL}
+        type: SECRET
+        scope: RUN_TIME
+      - key: SUPABASE_ANON_KEY
+        value: ${SUPABASE_ANON_KEY}
+        type: SECRET
+        scope: RUN_TIME
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: ${SUPABASE_SERVICE_ROLE_KEY}
+        type: SECRET
+        scope: RUN_TIME
 ingress:
   rules:
     - match:
