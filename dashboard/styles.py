@@ -13,6 +13,7 @@ CUSTOM_CSS = """
   --red: #ff3b30;
   --orange: #ff9500;
   --green: #34c759;
+  --risk-neutral: #d8dee7;
   --red-soft: rgba(255, 59, 48, 0.10);
   --orange-soft: rgba(255, 149, 0, 0.10);
   --green-soft: rgba(52, 199, 89, 0.10);
@@ -154,11 +155,17 @@ body {
 }
 
 /* ── Metric cards ── */
+.overview-shell {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.75rem 0 1rem;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
-  margin: 0.75rem 0;
+  margin: 0;
 }
 
 .metric-card {
@@ -198,6 +205,159 @@ body {
   font-size: 0.78rem;
   color: var(--text-secondary);
   margin-top: 0.15rem;
+}
+
+/* ── Cohort risk distribution ── */
+.cohort-risk-card {
+  padding: 1rem 1.15rem 1.05rem;
+}
+
+.cohort-risk-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cohort-risk-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+.cohort-risk-body {
+  display: grid;
+  grid-template-columns: minmax(210px, 250px) 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.cohort-risk-donut-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 190px;
+}
+
+.cohort-risk-donut {
+  --high-pct: 0;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  position: relative;
+  background: conic-gradient(
+    var(--red) calc(var(--high-pct) * 1%),
+    var(--risk-neutral) 0
+  );
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.cohort-risk-donut::after {
+  content: "";
+  position: absolute;
+  inset: 26px;
+  border-radius: 50%;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+}
+
+.cohort-risk-center {
+  position: absolute;
+  z-index: 2;
+  text-align: center;
+}
+
+.cohort-risk-center-value {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cohort-risk-center-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-top: 0.1rem;
+}
+
+.cohort-risk-stats {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cohort-risk-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.56rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.cohort-risk-stat-label {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.cohort-risk-stat-label::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cohort-risk-stat-value {
+  font-size: 0.94rem;
+  font-weight: 650;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cohort-risk-stat.tone-high {
+  border-color: rgba(255, 59, 48, 0.22);
+  background: var(--red-soft);
+}
+
+.cohort-risk-stat.tone-high .cohort-risk-stat-label::before {
+  background: var(--red);
+}
+
+.cohort-risk-stat.tone-high .cohort-risk-stat-value {
+  color: var(--red);
+}
+
+.cohort-risk-stat.tone-neutral .cohort-risk-stat-label::before {
+  background: #9ea5b1;
+}
+
+.cohort-risk-stat.tone-accent {
+  border-color: rgba(0, 113, 227, 0.18);
+  background: var(--accent-soft);
+}
+
+.cohort-risk-stat.tone-accent .cohort-risk-stat-label::before {
+  background: var(--accent);
+}
+
+.cohort-risk-stat.tone-accent .cohort-risk-stat-value {
+  color: var(--accent);
+}
+
+.cohort-risk-total {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
 }
 
 /* ── Panel cards ── */
@@ -442,6 +602,7 @@ body {
 @media (max-width: 1100px) {
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .profile-grid, .audit-grid { grid-template-columns: 1fr; }
+  .cohort-risk-body { grid-template-columns: 1fr; gap: 0.8rem; }
 }
 
 @media (max-width: 768px) {
@@ -449,6 +610,9 @@ body {
   .hero-title { font-size: 1.35rem; }
   .hero-panel { padding: 1rem 1.15rem 0.85rem; }
   .kv-grid { grid-template-columns: 1fr; }
+  .cohort-risk-header { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+  .cohort-risk-donut { width: 170px; height: 170px; }
+  .cohort-risk-donut::after { inset: 22px; }
 }
 
 /* ── Patient header ── */

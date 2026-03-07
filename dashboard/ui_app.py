@@ -14,7 +14,6 @@ from app.services.ai_summary import (
 from app.services.repository import (
     get_patient_profile,
     load_model_input,
-    _distribution_items,
 )
 from app.services.supabase_rest import test_rest_connection
 from dashboard.styles import CUSTOM_CSS
@@ -38,6 +37,14 @@ def _patient_header(data: dict) -> ui.Tag:
         ui.span({"class": "patient-id"}, data["patient_id"]),
         risk_badge(data["risk_level"]),
         ui.span({"class": "risk-pct"}, f"{data['risk_score']:.1%}"),
+    )
+
+
+def _cohort_stat_row(label: str, value: str, tone: str = "neutral") -> ui.Tag:
+    return ui.div(
+        {"class": f"cohort-risk-stat tone-{tone}"},
+        ui.div({"class": "cohort-risk-stat-label"}, label),
+        ui.div({"class": "cohort-risk-stat-value"}, value),
     )
 
 
@@ -78,7 +85,11 @@ app_ui = ui.page_fillable(
             width=260,
             open="desktop",
         ),
-        ui.output_ui("metric_cards"),
+        ui.div(
+            {"class": "overview-shell"},
+            ui.output_ui("metric_cards"),
+            ui.output_ui("cohort_risk_distribution"),
+        ),
         ui.navset_card_tab(
             # Tab 1
             ui.nav_panel(
@@ -232,6 +243,55 @@ def server(input, output, session):
         return ui.div(
             {"class": "metric-grid"},
             *[ui.div({"class": "metric-card"}, ui.div({"class": "metric-label"}, l), ui.div({"class": "metric-value"}, v), ui.div({"class": "metric-footnote"}, n)) for l, v, n in cards],
+        )
+
+    @reactive.calc
+    def cohort_risk_metrics() -> dict[str, int | float]:
+        df = cohort_df()
+        cohort_total = int(df["patient_id"].nunique())
+        high_count = int((df["risk_level"] == "high").sum())
+        high_count = min(high_count, cohort_total)
+        non_high_count = max(cohort_total - high_count, 0)
+        high_pct = (high_count / cohort_total) if cohort_total else 0.0
+        return {
+            "cohort_total": cohort_total,
+            "high_count": high_count,
+            "non_high_count": non_high_count,
+            "high_pct": high_pct,
+        }
+
+    @output
+    @render.ui
+    def cohort_risk_distribution():
+        stats = cohort_risk_metrics()
+        return ui.div(
+            {"class": "panel-card cohort-risk-card"},
+            ui.div(
+                {"class": "cohort-risk-header"},
+                ui.div({"class": "section-title"}, "Cohort Risk Distribution"),
+                ui.div({"class": "cohort-risk-subtitle"}, "High-risk vs non-high-risk patients"),
+            ),
+            ui.div(
+                {"class": "cohort-risk-body"},
+                ui.div(
+                    {"class": "cohort-risk-donut-wrap"},
+                    ui.div(
+                        {"class": "cohort-risk-donut", "style": f"--high-pct: {stats['high_pct'] * 100:.2f};"},
+                    ),
+                    ui.div(
+                        {"class": "cohort-risk-center"},
+                        ui.div({"class": "cohort-risk-center-value"}, f"{stats['high_pct']:.1%}"),
+                        ui.div({"class": "cohort-risk-center-label"}, "High-risk"),
+                    ),
+                ),
+                ui.div(
+                    {"class": "cohort-risk-stats"},
+                    _cohort_stat_row("High-risk count", str(stats["high_count"]), tone="high"),
+                    _cohort_stat_row("Non-high-risk count", str(stats["non_high_count"]), tone="neutral"),
+                    _cohort_stat_row("High-risk percentage", f"{stats['high_pct']:.1%}", tone="accent"),
+                    ui.div({"class": "cohort-risk-total"}, f"Cohort total: {stats['cohort_total']} patients"),
+                ),
+            ),
         )
 
     # ── Tab 1: AI Risk Summary ──
