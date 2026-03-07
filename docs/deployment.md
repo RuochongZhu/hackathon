@@ -30,6 +30,16 @@ If you want a different app name or branch later, update `.github/workflows/depl
 5. Run the GitHub Actions workflow `Deploy to DigitalOcean App Platform` once.
 6. Confirm the dashboard loads at `/` and the API responds at `/api/health`.
 
+## Routing Note (DigitalOcean)
+
+- The App Platform spec maps `dashboard` to `/` and `api` to `/api` using component routes in [`.do/app.yaml`](../.do/app.yaml).
+- In the DigitalOcean UI, use the app URL (or the `dashboard` component URL) for the web page.
+- The `api` component URL will intentionally return API JSON (for example `{"message":"TwinReadmit API is running."}`), which is expected.
+- If `/` still shows API JSON, verify component routes are:
+  - `dashboard`: `/`
+  - `api`: `/api`
+  Then trigger a fresh deployment.
+
 ## Important Security Note
 
 - Do not commit `API.md` or `.env`.
