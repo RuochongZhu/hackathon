@@ -32,13 +32,14 @@ If you want a different app name or branch later, update `.github/workflows/depl
 
 ## Routing Note (DigitalOcean)
 
-- The App Platform spec maps `dashboard` to `/` and `api` to `/api` using component routes in [`.do/app.yaml`](../.do/app.yaml).
+- The App Platform spec maps `dashboard` to `/` and `api` to `/api` using top-level `ingress.rules` in [`.do/app.yaml`](../.do/app.yaml).
 - In the DigitalOcean UI, use the app URL (or the `dashboard` component URL) for the web page.
 - The `api` component URL will intentionally return API JSON (for example `{"message":"TwinReadmit API is running."}`), which is expected.
 - If `/` still shows API JSON, verify component routes are:
   - `dashboard`: `/`
   - `api`: `/api`
   Then trigger a fresh deployment.
+- API root now includes a `revision` field. If it does not match the latest Git SHA, you are not hitting the newest deployment.
 
 ## Important Security Note
 

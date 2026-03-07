@@ -11,8 +11,6 @@ services:
     dockerfile_path: Dockerfile
     source_dir: /
     http_port: 8080
-    routes:
-      - path: /api
     instance_count: 1
     instance_size_slug: basic-xxs
     health_check:
@@ -41,6 +39,9 @@ services:
         value: ${DATABASE_URL}
         type: SECRET
         scope: RUN_TIME
+      - key: APP_REVISION
+        value: ${APP_REVISION}
+        scope: RUN_TIME
   - name: dashboard
     github:
       repo: ${GITHUB_REPOSITORY}
@@ -49,8 +50,6 @@ services:
     dockerfile_path: dashboard/Dockerfile
     source_dir: /
     http_port: 8080
-    routes:
-      - path: /
     instance_count: 1
     instance_size_slug: basic-xxs
     health_check:
@@ -91,3 +90,18 @@ services:
         value: ${SUPABASE_SERVICE_ROLE_KEY}
         type: SECRET
         scope: RUN_TIME
+      - key: APP_REVISION
+        value: ${APP_REVISION}
+        scope: RUN_TIME
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /api
+      component:
+        name: api
+    - match:
+        path:
+          prefix: /
+      component:
+        name: dashboard

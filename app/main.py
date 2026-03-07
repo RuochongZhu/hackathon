@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, HTTPException, Query
 
 from app.config import PRESET_CONFIGS
@@ -41,10 +43,12 @@ app = FastAPI(
 
 @app.get("/")
 async def root() -> dict:
+    revision = os.getenv("APP_REVISION", "").strip()
     return {
         "message": "TwinReadmit API is running.",
         "available_presets": list(PRESET_CONFIGS),
         "docs": "/docs",
+        "revision": revision[:12] if revision else "local",
     }
 
 
