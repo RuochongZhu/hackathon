@@ -161,6 +161,89 @@ body {
   margin: 0.75rem 0 1rem;
 }
 
+/* ── AI workspace ── */
+.ai-workspace {
+  margin: 0.2rem 0 0.3rem;
+}
+
+.ai-workspace > .card.bslib-card {
+  min-height: 760px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.74));
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.ai-workspace > .card.bslib-card > .card-header {
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid var(--border);
+  padding: 0.72rem 0.95rem 0.2rem;
+}
+
+.ai-workspace > .card.bslib-card > .card-body {
+  padding: 1.1rem 1.2rem 1.2rem;
+  overflow: visible;
+}
+
+.ai-workspace .nav-tabs .nav-link {
+  font-size: 0.92rem;
+  padding: 0.54rem 1.05rem;
+}
+
+.ai-workspace .tab-content,
+.ai-workspace .tab-pane {
+  height: 100%;
+  overflow: visible;
+}
+
+.ai-tab-stack {
+  display: grid;
+  grid-template-rows: minmax(520px, auto) auto;
+  gap: 1rem;
+}
+
+.ai-main-panel {
+  min-height: 520px;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 0;
+}
+
+.ai-chat-panel {
+  margin-bottom: 0;
+  padding: 0.95rem 1.1rem;
+}
+
+.ai-main-panel .section-title {
+  font-size: 0.86rem;
+  margin-bottom: 0.72rem;
+}
+
+.ai-main-panel .ai-narrative {
+  min-height: 170px;
+  padding: 1rem 1.08rem;
+  font-size: 0.93rem;
+  line-height: 1.72;
+}
+
+.ai-main-panel .signal-list,
+.ai-main-panel .action-list-ordered,
+.ai-main-panel .cases-grid {
+  gap: 0.62rem;
+}
+
+.ai-main-panel .action-card {
+  padding: 0.75rem 0.85rem;
+}
+
+.ai-main-panel .case-card {
+  padding: 0.72rem 0.85rem;
+}
+
+.ai-chat-panel .chat-thread {
+  max-height: 220px;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -603,6 +686,9 @@ body {
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .profile-grid, .audit-grid { grid-template-columns: 1fr; }
   .cohort-risk-body { grid-template-columns: 1fr; gap: 0.8rem; }
+  .ai-workspace > .card.bslib-card { min-height: 680px; }
+  .ai-tab-stack { grid-template-rows: minmax(430px, auto) auto; }
+  .ai-main-panel { min-height: 430px; }
 }
 
 @media (max-width: 768px) {
@@ -613,6 +699,12 @@ body {
   .cohort-risk-header { flex-direction: column; align-items: flex-start; gap: 0.2rem; }
   .cohort-risk-donut { width: 170px; height: 170px; }
   .cohort-risk-donut::after { inset: 22px; }
+  .ai-workspace > .card.bslib-card { min-height: 0; }
+  .ai-workspace > .card.bslib-card > .card-body { padding: 0.82rem; }
+  .ai-tab-stack { grid-template-rows: minmax(340px, auto) auto; gap: 0.8rem; }
+  .ai-main-panel { min-height: 340px; padding: 1rem; }
+  .ai-chat-panel { padding: 0.85rem 0.95rem; }
+  .ai-main-panel .ai-narrative { min-height: 135px; font-size: 0.9rem; }
 }
 
 /* ── Patient header ── */

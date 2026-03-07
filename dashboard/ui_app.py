@@ -90,24 +90,63 @@ app_ui = ui.page_fillable(
             ui.output_ui("metric_cards"),
             ui.output_ui("cohort_risk_distribution"),
         ),
-        ui.navset_card_tab(
-            # Tab 1
-            ui.nav_panel(
-                "AI Risk Summary",
-                ui.div({"class": "panel-card"}, ui.output_ui("tab1_content")),
-                ui.div({"class": "panel-card"}, ui.div({"class": "section-title"}, "Continue the conversation"), ui.output_ui("chat1_history"), ui.div({"class": "chat-input-row"}, ui.input_text("chat1_input", None, placeholder="Ask about this patient's risk..."), ui.input_action_button("chat1_send", "Send", class_="btn-sm btn-send"))),
-            ),
-            # Tab 2
-            ui.nav_panel(
-                "AI Recommended Actions",
-                ui.div({"class": "panel-card"}, ui.output_ui("tab2_content")),
-                ui.div({"class": "panel-card"}, ui.div({"class": "section-title"}, "Continue the conversation"), ui.output_ui("chat2_history"), ui.div({"class": "chat-input-row"}, ui.input_text("chat2_input", None, placeholder="Ask about interventions..."), ui.input_action_button("chat2_send", "Send", class_="btn-sm btn-send"))),
-            ),
-            # Tab 3
-            ui.nav_panel(
-                "AI Similar Cases",
-                ui.div({"class": "panel-card"}, ui.output_ui("tab3_content")),
-                ui.div({"class": "panel-card"}, ui.div({"class": "section-title"}, "Continue the conversation"), ui.output_ui("chat3_history"), ui.div({"class": "chat-input-row"}, ui.input_text("chat3_input", None, placeholder="Ask about similar cases..."), ui.input_action_button("chat3_send", "Send", class_="btn-sm btn-send"))),
+        ui.div(
+            {"class": "ai-workspace"},
+            ui.navset_card_tab(
+                # Tab 1
+                ui.nav_panel(
+                    "AI Risk Summary",
+                    ui.div(
+                        {"class": "ai-tab-stack"},
+                        ui.div({"class": "panel-card ai-main-panel"}, ui.output_ui("tab1_content")),
+                        ui.div(
+                            {"class": "panel-card ai-chat-panel"},
+                            ui.div({"class": "section-title"}, "Continue the conversation"),
+                            ui.output_ui("chat1_history"),
+                            ui.div(
+                                {"class": "chat-input-row"},
+                                ui.input_text("chat1_input", None, placeholder="Ask about this patient's risk..."),
+                                ui.input_action_button("chat1_send", "Send", class_="btn-sm btn-send"),
+                            ),
+                        ),
+                    ),
+                ),
+                # Tab 2
+                ui.nav_panel(
+                    "AI Recommended Actions",
+                    ui.div(
+                        {"class": "ai-tab-stack"},
+                        ui.div({"class": "panel-card ai-main-panel"}, ui.output_ui("tab2_content")),
+                        ui.div(
+                            {"class": "panel-card ai-chat-panel"},
+                            ui.div({"class": "section-title"}, "Continue the conversation"),
+                            ui.output_ui("chat2_history"),
+                            ui.div(
+                                {"class": "chat-input-row"},
+                                ui.input_text("chat2_input", None, placeholder="Ask about interventions..."),
+                                ui.input_action_button("chat2_send", "Send", class_="btn-sm btn-send"),
+                            ),
+                        ),
+                    ),
+                ),
+                # Tab 3
+                ui.nav_panel(
+                    "AI Similar Cases",
+                    ui.div(
+                        {"class": "ai-tab-stack"},
+                        ui.div({"class": "panel-card ai-main-panel"}, ui.output_ui("tab3_content")),
+                        ui.div(
+                            {"class": "panel-card ai-chat-panel"},
+                            ui.div({"class": "section-title"}, "Continue the conversation"),
+                            ui.output_ui("chat3_history"),
+                            ui.div(
+                                {"class": "chat-input-row"},
+                                ui.input_text("chat3_input", None, placeholder="Ask about similar cases..."),
+                                ui.input_action_button("chat3_send", "Send", class_="btn-sm btn-send"),
+                            ),
+                        ),
+                    ),
+                ),
             ),
         ),
     ),
