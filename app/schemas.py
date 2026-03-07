@@ -14,6 +14,14 @@ class TrainModelRequest(BaseModel):
     write_to_db: bool = Field(default=False)
 
 
+class AIPatientSummaryRequest(BaseModel):
+    preset: str = Field(default="baseline")
+    patient_id: str = Field(min_length=1)
+    temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    max_output_tokens: int = Field(default=500, ge=100, le=2000)
+    timeout_seconds: float = Field(default=20.0, ge=1.0, le=120.0)
+
+
 class DatasetArtifact(BaseModel):
     name: str
     rows: int
@@ -119,3 +127,26 @@ class DatabaseHealthResponse(BaseModel):
     connected: bool = False
     database: str | None = None
     user: str | None = None
+
+
+class AISourceModel(BaseModel):
+    model_name: str
+    model_version: str
+
+
+class AISummaryContent(BaseModel):
+    risk_summary: str
+    quantitative_signals: List[str]
+    recommended_actions: List[str]
+    watchouts: List[str]
+
+
+class AIPatientSummaryResponse(BaseModel):
+    preset: str
+    patient_id: str
+    source_model: AISourceModel
+    llm_model: str
+    generated_at: str
+    fallback_used: bool
+    fallback_reason: str | None = None
+    summary: AISummaryContent
