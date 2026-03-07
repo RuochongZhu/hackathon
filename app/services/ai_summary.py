@@ -315,10 +315,6 @@ def chat_followup(profile: dict[str, Any], history: list[dict[str, str]], user_m
             "role": msg["role"],
             "content": [{"type": "input_text", "text": msg["content"]}],
         })
-    messages.append({
-        "role": "user",
-        "content": [{"type": "input_text", "text": user_message}],
-    })
     result = _call_openai(messages, model=model, temperature=temperature, max_tokens=400)
     if "error" in result:
         return f"Unable to respond: {result['error']}"

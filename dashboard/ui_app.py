@@ -332,11 +332,11 @@ def server(input, output, session):
         text = input.chat1_input().strip()
         if not text or not profile():
             return
-        history = chat1_messages.get()
+        history = list(chat1_messages.get())
         history.append({"role": "user", "content": text})
         reply = chat_followup(profile(), history, text, model=input.llm_model())
         history.append({"role": "assistant", "content": reply})
-        chat1_messages.set(list(history))
+        chat1_messages.set(history)
         ui.update_text("chat1_input", value="")
 
     @reactive.effect
@@ -345,11 +345,11 @@ def server(input, output, session):
         text = input.chat2_input().strip()
         if not text or not profile():
             return
-        history = chat2_messages.get()
+        history = list(chat2_messages.get())
         history.append({"role": "user", "content": text})
         reply = chat_followup(profile(), history, text, model=input.llm_model())
         history.append({"role": "assistant", "content": reply})
-        chat2_messages.set(list(history))
+        chat2_messages.set(history)
         ui.update_text("chat2_input", value="")
 
     @reactive.effect
@@ -358,11 +358,11 @@ def server(input, output, session):
         text = input.chat3_input().strip()
         if not text or not profile():
             return
-        history = chat3_messages.get()
+        history = list(chat3_messages.get())
         history.append({"role": "user", "content": text})
         reply = chat_followup(profile(), history, text, model=input.llm_model())
         history.append({"role": "assistant", "content": reply})
-        chat3_messages.set(list(history))
+        chat3_messages.set(history)
         ui.update_text("chat3_input", value="")
 
     @output
