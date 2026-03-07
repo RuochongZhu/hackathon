@@ -119,3 +119,38 @@ class DatabaseHealthResponse(BaseModel):
     connected: bool = False
     database: str | None = None
     user: str | None = None
+
+
+class IntegrationStatusResponse(BaseModel):
+    provider: str
+    model: str
+    configured: bool
+    api_reachable: bool
+    auth_valid: bool
+    model_available: bool
+    message: str
+
+
+class AuditCheckItem(BaseModel):
+    name: str
+    status: str
+    detail: str
+
+
+class AuditModelStatus(BaseModel):
+    ready: bool
+    name: str
+    version: str
+    prediction_rows: int
+    prediction_artifact: str
+    thresholds: dict[str, float]
+
+
+class AuditResponse(BaseModel):
+    preset: str
+    generated_at: str
+    overall_passed: bool
+    checks: List[AuditCheckItem]
+    model: AuditModelStatus
+    llm: IntegrationStatusResponse
+    database: DatabaseHealthResponse

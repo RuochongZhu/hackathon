@@ -5,21 +5,49 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 COLOR_SCALE = {
-    "high": "#ff6f91",
-    "medium": "#ffb55f",
-    "low": "#47d7ac",
+    "high": "#ff5f73",
+    "medium": "#f4b942",
+    "low": "#2ccf9f",
 }
+
+DIAGNOSIS_COLORS = ["#2ccf9f", "#3ba8ff", "#f4b942", "#ff8b61", "#ff5f73", "#58d2e8"]
 
 PLOTLY_LAYOUT = {
     "paper_bgcolor": "rgba(0,0,0,0)",
     "plot_bgcolor": "rgba(0,0,0,0)",
-    "font": {"color": "#eaf2ff"},
+    "font": {"color": "#e7f6fb", "family": "'IBM Plex Sans', sans-serif"},
     "margin": {"l": 16, "r": 16, "t": 28, "b": 16},
 }
+
+GRID_COLOR = "rgba(137, 178, 192, 0.22)"
+
+
+def _empty_figure(message: str) -> go.Figure:
+    fig = go.Figure()
+    fig.add_annotation(
+        text=message,
+        showarrow=False,
+        x=0.5,
+        y=0.5,
+        xref="paper",
+        yref="paper",
+        font={"size": 14, "color": "#9ec4d0"},
+    )
+    fig.update_layout(
+        **PLOTLY_LAYOUT,
+        xaxis={"visible": False},
+        yaxis={"visible": False},
+        height=280,
+    )
+    return fig
 
 
 def risk_distribution_figure(items: list[dict]) -> go.Figure:
     df = pd.DataFrame(items)
+    if df.empty or not {"label", "value"}.issubset(df.columns):
+        return _empty_figure("No risk-tier data available for this filter.")
+
+    df["value"] = pd.to_numeric(df["value"], errors="coerce").fillna(0)
     fig = px.bar(
         df,
         x="label",
@@ -30,18 +58,26 @@ def risk_distribution_figure(items: list[dict]) -> go.Figure:
     )
     fig.update_layout(showlegend=False, **PLOTLY_LAYOUT)
     fig.update_xaxes(title=None)
-    fig.update_yaxes(title=None, gridcolor="rgba(255,255,255,0.08)")
+    fig.update_yaxes(title=None, gridcolor=GRID_COLOR)
     return fig
 
 
 def diagnosis_mix_figure(items: list[dict]) -> go.Figure:
     df = pd.DataFrame(items)
+    if df.empty or not {"label", "value"}.issubset(df.columns):
+        return _empty_figure("No diagnosis-mix data available for this filter.")
+
+    df["value"] = pd.to_numeric(df["value"], errors="coerce").fillna(0)
+    df = df[df["value"] > 0]
+    if df.empty:
+        return _empty_figure("No diagnosis-mix data available for this filter.")
+
     fig = px.pie(
         df,
         names="label",
         values="value",
-        hole=0.62,
-        color_discrete_sequence=["#59b0ff", "#7a7dff", "#47d7ac", "#ffb55f", "#ff6f91"],
+        hole=0.64,
+        color_discrete_sequence=DIAGNOSIS_COLORS,
     )
     fig.update_traces(textposition="inside", textinfo="percent+label")
     fig.update_layout(**PLOTLY_LAYOUT, legend_title_text="Diagnosis")
@@ -49,7 +85,21 @@ def diagnosis_mix_figure(items: list[dict]) -> go.Figure:
 
 
 def explorer_bar_figure(df: pd.DataFrame) -> go.Figure:
-    plot_df = df.sort_values("predicted_readmission_probability", ascending=True).tail(12)
+    if df.empty:
+        return _empty_figure("No patients match your current explorer filters.")
+
+    plot_df = df.copy()
+    if "predicted_readmission_probability" not in plot_df.columns:
+        if "active_risk_probability" in plot_df.columns:
+            plot_df["predicted_readmission_probability"] = plot_df["active_risk_probability"]
+        else:
+            return _empty_figure("Missing risk fields for the explorer chart.")
+    if "risk_level" not in plot_df.columns:
+        plot_df["risk_level"] = "medium"
+    if "patient_id" not in plot_df.columns:
+        plot_df["patient_id"] = [f"patient_{idx + 1}" for idx in range(len(plot_df))]
+
+    plot_df = plot_df.sort_values("predicted_readmission_probability", ascending=True).tail(12)
     fig = px.bar(
         plot_df,
         x="predicted_readmission_probability",
@@ -57,7 +107,7 @@ def explorer_bar_figure(df: pd.DataFrame) -> go.Figure:
         orientation="h",
         color="risk_level",
         color_discrete_map=COLOR_SCALE,
-        hover_data=["diagnosis_group", "severity_score", "prior_admissions_12m"],
+        hover_data=[col for col in ["diagnosis_group", "severity_score", "prior_admissions_12m"] if col in plot_df.columns],
     )
     fig.update_layout(**PLOTLY_LAYOUT, xaxis_tickformat=".0%", yaxis_title=None, xaxis_title="Predicted risk")
     return fig
@@ -76,9 +126,9 @@ def gauge_figure(risk_score: float, risk_level: str) -> go.Figure:
                 "bar": {"color": color},
                 "bgcolor": "rgba(255,255,255,0.04)",
                 "steps": [
-                    {"range": [0, 35], "color": "rgba(71,215,172,0.20)"},
-                    {"range": [35, 65], "color": "rgba(255,181,95,0.18)"},
-                    {"range": [65, 100], "color": "rgba(255,111,145,0.18)"},
+                    {"range": [0, 35], "color": "rgba(44,207,159,0.20)"},
+                    {"range": [35, 65], "color": "rgba(244,185,66,0.18)"},
+                    {"range": [65, 100], "color": "rgba(255,95,115,0.18)"},
                 ],
             },
         )
@@ -88,27 +138,32 @@ def gauge_figure(risk_score: float, risk_level: str) -> go.Figure:
 
 
 def cohort_comparison_figure(profile: dict) -> go.Figure:
+    overview = profile.get("overview", {})
+    clinical = profile.get("clinical_snapshot", {})
+    discharge = profile.get("discharge_factors", {})
+    medians = profile.get("cohort_medians", {})
+
     metrics = [
-        ("Age", profile["overview"]["age"], profile["cohort_medians"]["age"]),
-        ("Chronic", profile["clinical_snapshot"]["chronic_conditions_count"], profile["cohort_medians"]["chronic_conditions_count"]),
-        ("Prior Adm", profile["clinical_snapshot"]["prior_admissions_12m"], profile["cohort_medians"]["prior_admissions_12m"]),
-        ("LOS", profile["clinical_snapshot"]["length_of_stay"], profile["cohort_medians"]["length_of_stay"]),
-        ("Severity", profile["clinical_snapshot"]["severity_score"], profile["cohort_medians"]["severity_score"]),
-        ("Meds", profile["discharge_factors"]["medication_complexity"], profile["cohort_medians"]["medication_complexity"]),
+        ("Age", overview.get("age", 0), medians.get("age", 0)),
+        ("Chronic", clinical.get("chronic_conditions_count", 0), medians.get("chronic_conditions_count", 0)),
+        ("Prior Adm", clinical.get("prior_admissions_12m", 0), medians.get("prior_admissions_12m", 0)),
+        ("LOS", clinical.get("length_of_stay", 0), medians.get("length_of_stay", 0)),
+        ("Severity", clinical.get("severity_score", 0), medians.get("severity_score", 0)),
+        ("Meds", discharge.get("medication_complexity", 0), medians.get("medication_complexity", 0)),
     ]
     labels = [item[0] for item in metrics]
-    patient_values = [item[1] for item in metrics]
-    median_values = [item[2] for item in metrics]
+    patient_values = [float(item[1]) for item in metrics]
+    median_values = [float(item[2]) for item in metrics]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=patient_values, theta=labels, fill="toself", name="Patient", line_color="#59b0ff"))
-    fig.add_trace(go.Scatterpolar(r=median_values, theta=labels, fill="toself", name="Cohort median", line_color="#7a7dff"))
+    fig.add_trace(go.Scatterpolar(r=patient_values, theta=labels, fill="toself", name="Patient", line_color="#3ba8ff"))
+    fig.add_trace(go.Scatterpolar(r=median_values, theta=labels, fill="toself", name="Cohort median", line_color="#2ccf9f"))
     fig.update_layout(
         **PLOTLY_LAYOUT,
         polar={
             "bgcolor": "rgba(0,0,0,0)",
-            "radialaxis": {"visible": True, "gridcolor": "rgba(255,255,255,0.08)"},
-            "angularaxis": {"gridcolor": "rgba(255,255,255,0.08)"},
+            "radialaxis": {"visible": True, "gridcolor": GRID_COLOR},
+            "angularaxis": {"gridcolor": GRID_COLOR},
         },
         height=360,
     )
@@ -117,8 +172,8 @@ def cohort_comparison_figure(profile: dict) -> go.Figure:
 
 def similar_cases_figure(similar_cases: list[dict]) -> go.Figure:
     df = pd.DataFrame(similar_cases)
-    if df.empty:
-        return go.Figure()
+    if df.empty or not {"similarity_score", "patient_id"}.issubset(df.columns):
+        return _empty_figure("No historical analogs found for this patient.")
 
     fig = px.bar(
         df.sort_values("similarity_score"),
@@ -127,8 +182,9 @@ def similar_cases_figure(similar_cases: list[dict]) -> go.Figure:
         orientation="h",
         color="risk_level",
         color_discrete_map=COLOR_SCALE,
-        text="predicted_readmission_probability",
+        text="predicted_readmission_probability" if "predicted_readmission_probability" in df.columns else None,
     )
     fig.update_layout(**PLOTLY_LAYOUT, xaxis_title="Similarity score", yaxis_title=None)
-    fig.update_traces(texttemplate="risk %{text:.0%}", textposition="outside")
+    if "predicted_readmission_probability" in df.columns:
+        fig.update_traces(texttemplate="risk %{text:.0%}", textposition="outside")
     return fig

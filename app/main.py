@@ -2,17 +2,20 @@ from fastapi import FastAPI, HTTPException, Query
 
 from app.config import PRESET_CONFIGS
 from app.schemas import (
+    AuditResponse,
     DatasetArtifact,
     DatasetSummary,
     DatabaseHealthResponse,
     GenerateDatasetRequest,
+    IntegrationStatusResponse,
     ModelTrainingResponse,
     PatientListResponse,
     PatientProfileResponse,
     PredictionSummaryResponse,
     TrainModelRequest,
 )
-from app.services.database import test_database_connection
+from app.services.audit import run_system_audit
+from app.services.integrations import database_status, llm_status
 from app.services.modeling import load_prediction_summary, train_baseline_model
 from app.services.repository import (
     PatientNotFoundError,
@@ -48,11 +51,25 @@ async def health() -> dict:
 
 @app.get("/database/health", response_model=DatabaseHealthResponse)
 async def database_health() -> DatabaseHealthResponse:
-    try:
-        status = test_database_connection()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Database connectivity test failed: {exc}") from exc
+    status = database_status(live_check=True)
     return DatabaseHealthResponse(**status)
+
+
+@app.get("/integrations/llm", response_model=IntegrationStatusResponse)
+async def integrations_llm(live_check: bool = Query(default=False)) -> IntegrationStatusResponse:
+    return IntegrationStatusResponse(**llm_status(live_check=live_check))
+
+
+@app.get("/audit/system", response_model=AuditResponse)
+async def audit_system(
+    preset: str = Query(default="baseline"),
+    live_checks: bool = Query(default=False),
+) -> AuditResponse:
+    try:
+        report = run_system_audit(preset=preset, live_checks=live_checks)
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
+    return AuditResponse(**report)
 
 
 @app.get("/datasets")

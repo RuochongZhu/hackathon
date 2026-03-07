@@ -36,3 +36,21 @@ def test_patient_profile_endpoint() -> None:
     body = response.json()
     assert body["patient_id"] == top_patient
     assert "key_drivers" in body
+
+
+def test_llm_integration_status_endpoint() -> None:
+    response = client.get("/integrations/llm")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] == "openai"
+    assert "configured" in body
+    assert "message" in body
+
+
+def test_system_audit_endpoint() -> None:
+    response = client.get("/audit/system", params={"preset": "baseline"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["preset"] == "baseline"
+    assert "checks" in body
+    assert len(body["checks"]) >= 1
