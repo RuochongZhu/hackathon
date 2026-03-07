@@ -66,6 +66,12 @@ app_ui = ui.page_fillable(
         ui.sidebar(
             ui.div({"class": "sidebar-section-label"}, "Data"),
             ui.input_select("preset", "Cohort", {p: c["name"] for p, c in PRESET_CONFIGS.items()}, selected="baseline"),
+            ui.input_select(
+                "patient_sort",
+                "Sort patients by",
+                {"id": "Patient ID", "risk": "Risk (high → low)"},
+                selected="id",
+            ),
             ui.output_ui("patient_selector_ui"),
             ui.div({"class": "sidebar-section-label"}, "AI Model"),
             ui.input_select("llm_model", "LLM", MODEL_CHOICES, selected="gpt-4o-mini"),
@@ -125,7 +131,11 @@ def server(input, output, session):
     @reactive.calc
     def all_patient_ids() -> list[str]:
         df = cohort_df()
-        return df.sort_values("active_risk_probability", ascending=False)["patient_id"].unique().tolist()
+        if input.patient_sort() == "risk":
+            ordered = df.sort_values("active_risk_probability", ascending=False)
+        else:
+            ordered = df.sort_values("patient_id")
+        return ordered["patient_id"].unique().tolist()
 
     @reactive.calc
     def selected_patient_id() -> str:
@@ -135,7 +145,11 @@ def server(input, output, session):
     @reactive.effect
     def _update_patient_selector():
         ids = all_patient_ids()
-        ui.update_selectize("patient_id", choices=ids, selected=ids[0] if ids else None)
+        if not ids:
+            return
+        current = input.patient_id()
+        selected = current if current in ids else ids[0]
+        ui.update_selectize("patient_id", choices=ids, selected=selected)
 
     @output
     @render.ui
