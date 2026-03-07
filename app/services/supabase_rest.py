@@ -74,12 +74,15 @@ def fetch_table(table: str, params: dict[str, str] | None = None) -> list[dict[s
     return resp.json()
 
 
-def fetch_joined_dataset(limit: int = 1000) -> pd.DataFrame:
-    rows = fetch_table("joined_readmission_dataset", {
+def fetch_joined_dataset(preset: str | None = None, limit: int = 1000) -> pd.DataFrame:
+    params: dict[str, str] = {
         "select": "*",
         "limit": str(limit),
         "order": "encounter_id",
-    })
+    }
+    if preset:
+        params["preset"] = f"eq.{preset}"
+    rows = fetch_table("joined_readmission_dataset", params)
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows)
