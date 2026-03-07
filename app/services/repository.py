@@ -272,6 +272,67 @@ def get_dashboard_summary(preset: str) -> dict[str, Any]:
     }
 
 
+def get_mosaic_data(preset: str) -> dict[str, Any]:
+    """Aggregated counts by diagnosis_group, risk_level, readmitted_30d for mosaic plot."""
+    df = load_model_input(preset)
+    df["readmitted_30d"] = df["readmitted_30d"].astype(int)
+    agg = (
+        df.groupby(["diagnosis_group", "risk_level", "readmitted_30d"], dropna=False)
+        .size()
+        .reset_index(name="count")
+    )
+    total = int(agg["count"].sum())
+    tiles = [
+        {
+            "diagnosis_group": str(row["diagnosis_group"]),
+            "risk_level": str(row["risk_level"]),
+            "readmitted_30d": int(row["readmitted_30d"]),
+            "count": int(row["count"]),
+        }
+        for row in agg.to_dict(orient="records")
+    ]
+    return {"preset": preset, "total": total, "tiles": tiles}
+
+
+BOXPLOT_GROUP_KEYS = ["risk_level", "diagnosis_group", "readmitted_30d", "insurance_type", "abnormal_vitals_flag"]
+BOXPLOT_VALUE_KEYS = [
+    "predicted_readmission_probability",
+    "age",
+    "chronic_conditions_count",
+    "prior_admissions_12m",
+    "severity_score",
+    "length_of_stay",
+    "medication_complexity",
+]
+
+
+def get_boxplot_data(preset: str) -> dict[str, Any]:
+    """Raw rows for box plot: grouping and numeric columns only."""
+    df = load_model_input(preset)
+    df["readmitted_30d"] = df["readmitted_30d"].astype(int)
+    df["abnormal_vitals_flag"] = df["abnormal_vitals_flag"].astype(int)
+    if "predicted_readmission_probability" not in df.columns and "active_risk_probability" in df.columns:
+        df["predicted_readmission_probability"] = df["active_risk_probability"]
+    cols = [c for c in BOXPLOT_GROUP_KEYS + BOXPLOT_VALUE_KEYS if c in df.columns]
+    df = df[cols].copy()
+    for c in BOXPLOT_VALUE_KEYS:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    rows = []
+    for _, row in df.iterrows():
+        r = {}
+        for c in cols:
+            v = row[c]
+            if pd.isna(v):
+                r[c] = None
+            elif isinstance(v, (np.integer, np.floating)):
+                r[c] = float(v) if isinstance(v, np.floating) else int(v)
+            else:
+                r[c] = str(v)
+        rows.append(r)
+    return {"preset": preset, "rows": rows, "group_keys": BOXPLOT_GROUP_KEYS, "value_keys": BOXPLOT_VALUE_KEYS}
+
+
 def list_patient_ids(preset: str) -> list[str]:
     df = load_model_input(preset)
     return df.sort_values("active_risk_probability", ascending=False)["patient_id"].tolist()

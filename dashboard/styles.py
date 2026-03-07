@@ -276,6 +276,20 @@ body {
   max-height: 220px;
 }
 
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  align-items: stretch;
+}
+
+.charts-row .panel-card {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -321,6 +335,88 @@ body {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   margin-top: var(--spacing-xs);
+}
+
+/* ── Mosaic plot (embedded in Shiny) ── */
+.mosaic-card {
+  padding: 1rem 1.15rem;
+}
+
+.mosaic-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
+}
+
+.mosaic-wrap {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.mosaic-svg-wrap {
+  width: 100%;
+  line-height: 0;
+}
+
+.mosaic-svg {
+  width: 100%;
+  display: block;
+}
+
+.mosaic-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+}
+
+.mosaic-legend {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mosaic-legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 0.2rem;
+  vertical-align: middle;
+}
+
+/* ── Box plot (embedded in Shiny) ── */
+.charts-row .boxplot-card,
+.charts-row .cohort-risk-card {
+  padding: 1rem 1.15rem;
+}
+
+.boxplot-card {
+  padding: 1rem 1.15rem;
+}
+
+.boxplot-wrap {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.boxplot-svg-wrap {
+  width: 100%;
+  line-height: 0;
+}
+
+.boxplot-svg {
+  display: block;
 }
 
 /* ── Cohort risk distribution ── */
@@ -986,6 +1082,7 @@ button:focus-visible,
   .ai-workspace > .card.bslib-card { min-height: 680px; }
   .ai-tab-stack { grid-template-rows: minmax(430px, auto) auto; }
   .ai-main-panel { min-height: 430px; }
+  .charts-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {

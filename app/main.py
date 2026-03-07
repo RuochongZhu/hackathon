@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import PRESET_CONFIGS
 from app.schemas import (
@@ -24,8 +25,10 @@ from app.services.modeling import load_prediction_summary, train_baseline_model
 from app.services.repository import (
     PatientNotFoundError,
     PresetNotFoundError,
+    get_boxplot_data,
     get_dashboard_summary,
     get_high_risk_patients,
+    get_mosaic_data,
     get_patient_profile,
     get_similar_cases,
 )
@@ -36,6 +39,13 @@ app = FastAPI(
     title="TwinReadmit API",
     description="Synthetic readmission-risk API powering the TwinReadmit dashboard and future digital twin workflows.",
     version="0.3.0",
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -139,6 +149,24 @@ async def dashboard_summary(preset: str = "baseline") -> DatasetSummary:
     except PresetNotFoundError as exc:
         raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
     return DatasetSummary(**summary)
+
+
+@app.get("/mosaic-data")
+async def mosaic_data(preset: str = "baseline") -> dict:
+    """Aggregated counts by diagnosis_group, risk_level, readmitted_30d for mosaic plot."""
+    try:
+        return get_mosaic_data(preset)
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
+
+
+@app.get("/boxplot-data")
+async def boxplot_data(preset: str = "baseline") -> dict:
+    """Raw rows for box plot: group and numeric columns for 30-day readmission cohort."""
+    try:
+        return get_boxplot_data(preset)
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{preset}'") from exc
 
 
 @app.get("/patients/high-risk", response_model=PatientListResponse)

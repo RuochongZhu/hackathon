@@ -538,6 +538,15 @@ Useful endpoints:
 - `GET /dashboard/summary?preset=baseline`
 - `GET /patients/high-risk?preset=baseline&limit=1`
 - `POST /ai/patient-summary`
+- `GET /mosaic-data?preset=baseline` — aggregated counts for mosaic plot (diagnosis_group × risk_level × readmitted_30d)
+
+Optional — React mosaic plot dashboard (separate UI, no conflict with Shiny):
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Then open http://localhost:3000. Ensure the API is running on port 8000.
 
 ### GenAI Integration Endpoint
 
