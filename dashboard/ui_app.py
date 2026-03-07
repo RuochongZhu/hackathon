@@ -6,6 +6,7 @@ from shiny import App, reactive, render, ui
 
 from app.config import PRESET_CONFIGS
 from app.services.audit import run_system_audit
+from app.services.ai_summary import generate_patient_summary
 from app.services.repository import (
     get_dashboard_summary,
     get_high_risk_patients,
@@ -203,6 +204,18 @@ app_ui = ui.page_fillable(
                     ),
                     col_widths=[6, 6],
                 ),
+                ui.div(
+                    {"class": "panel-card"},
+                    ui.layout_columns(
+                        ui.div({"class": "section-title"}, "AI care-team summary"),
+                        ui.div(
+                            ui.input_action_button("refresh_ai_summary", "Regenerate AI Summary"),
+                            style="display:flex; justify-content:flex-end;",
+                        ),
+                        col_widths=[9, 3],
+                    ),
+                    ui.output_ui("ai_summary_ui"),
+                ),
             ),
             ui.nav_panel(
                 "System Audit",
@@ -231,6 +244,14 @@ def _tone_for_status(passed: bool) -> str:
 
 
 def server(input, output, session):
+    @reactive.calc
+    def selected_patient_id() -> str:
+        patient_id = input.patient_id()
+        if patient_id:
+            return patient_id
+        ids = list_patient_ids(input.preset())
+        return ids[0]
+
     @reactive.calc
     def cohort_df() -> pd.DataFrame:
         return load_model_input(input.preset())
@@ -284,11 +305,26 @@ def server(input, output, session):
 
     @reactive.calc
     def profile() -> dict:
-        patient_id = input.patient_id()
-        if not patient_id:
-            ids = list_patient_ids(input.preset())
-            patient_id = ids[0]
-        return get_patient_profile(input.preset(), patient_id)
+        return get_patient_profile(input.preset(), selected_patient_id())
+
+    @reactive.calc
+    def ai_summary_response() -> dict:
+        # Button clicks invalidate this reactive value and regenerate the summary.
+        _ = input.refresh_ai_summary()
+        try:
+            return generate_patient_summary(
+                preset=input.preset(),
+                patient_id=selected_patient_id(),
+                temperature=0.2,
+                max_output_tokens=500,
+                timeout_seconds=20.0,
+            )
+        except Exception as exc:
+            return {
+                "preset": input.preset(),
+                "patient_id": selected_patient_id(),
+                "error": str(exc),
+            }
 
     @output
     @render.ui
@@ -592,6 +628,53 @@ def server(input, output, session):
                 )
                 for item in checks
             ],
+        )
+
+    @output
+    @render.ui
+    def ai_summary_ui():
+        payload = ai_summary_response()
+        error = payload.get("error")
+        if error:
+            return ui.tags.div(
+                {"class": "ai-alert"},
+                f"AI summary unavailable: {error}",
+            )
+
+        summary = payload.get("summary", {})
+        fallback_used = bool(payload.get("fallback_used"))
+        fallback_reason = payload.get("fallback_reason") or "none"
+        status_class = "badge-medium" if fallback_used else "badge-low"
+        status_label = "Fallback active" if fallback_used else "OpenAI live"
+
+        def list_block(title: str, items: list[str], css_class: str):
+            return ui.div(
+                {"class": "ai-section"},
+                ui.div({"class": "ai-section-title"}, title),
+                ui.tags.ul(
+                    {"class": css_class},
+                    *[ui.tags.li(item) for item in items],
+                ),
+            )
+
+        return ui.div(
+            {"class": "ai-summary"},
+            ui.div(
+                {"class": "ai-meta-row"},
+                ui.span({"class": f"badge {status_class}"}, status_label),
+                ui.span(
+                    {"class": "ai-meta-item"},
+                    f"Model: {payload.get('llm_model', 'unknown')}",
+                ),
+                ui.span(
+                    {"class": "ai-meta-item"},
+                    f"Fallback reason: {fallback_reason}",
+                ),
+            ),
+            ui.div({"class": "ai-risk-summary"}, summary.get("risk_summary", "")),
+            list_block("Quantitative signals", summary.get("quantitative_signals", []), "signal-list"),
+            list_block("Recommended actions", summary.get("recommended_actions", []), "action-list"),
+            list_block("Watchouts", summary.get("watchouts", []), "driver-list"),
         )
 
 

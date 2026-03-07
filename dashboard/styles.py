@@ -447,6 +447,46 @@ body {
   border-radius: 10px !important;
 }
 
+.ai-summary {
+  display: grid;
+  gap: 0.85rem;
+}
+.ai-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ai-meta-item {
+  color: #b8cef7;
+  font-size: 0.88rem;
+}
+.ai-risk-summary {
+  color: #e5efff;
+  line-height: 1.65;
+  background: rgba(15, 30, 51, 0.65);
+  border: 1px solid rgba(113, 166, 255, 0.18);
+  border-radius: 14px;
+  padding: 0.8rem 0.9rem;
+}
+.ai-section {
+  display: grid;
+  gap: 0.45rem;
+}
+.ai-section-title {
+  color: #d2e3ff;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ai-alert {
+  color: #ffbac9;
+  background: rgba(255, 111, 145, 0.14);
+  border: 1px solid rgba(255, 111, 145, 0.35);
+  border-radius: 14px;
+  padding: 0.75rem 0.9rem;
+}
+
 @media (max-width: 1200px) {
   .profile-grid,
   .audit-grid {

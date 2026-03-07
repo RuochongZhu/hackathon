@@ -14,7 +14,7 @@ This project uses:
 Add these repository secrets before deployment:
 
 - `DIGITALOCEAN_ACCESS_TOKEN`: DigitalOcean personal access token for App Platform deployment automation
-- `OPENAI_API_KEY`: server-side OpenAI key
+- `OPENAI_API_KEY`: server-side OpenAI key (used by both `api` and `dashboard` services)
 - `DATABASE_URL`: Supabase PostgreSQL connection string
 
 ## Optional GitHub Variables

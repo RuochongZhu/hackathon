@@ -536,6 +536,40 @@ Useful endpoints:
 - `GET /datasets`
 - `POST /generate-data`
 - `GET /dashboard/summary?preset=baseline`
+- `GET /patients/high-risk?preset=baseline&limit=1`
+- `POST /ai/patient-summary`
+
+### GenAI Integration Endpoint
+
+`POST /ai/patient-summary` converts existing model outputs into an AI-generated clinical decision-support summary.
+
+Important guardrails:
+- Uses existing structured outputs (`risk_score`, `key_drivers`, `recommended_actions`, `similar_cases`) as context
+- Does not re-predict risk; it explains current model output and proposes actions
+- If OpenAI is unavailable, automatic deterministic fallback is returned with:
+  - `fallback_used: true`
+  - `fallback_reason: <reason_code>`
+
+Example request:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/ai/patient-summary" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "preset": "baseline",
+    "patient_id": "P0001",
+    "temperature": 0.2,
+    "max_output_tokens": 500
+  }'
+```
+
+Expected response keys:
+- `source_model`
+- `llm_model`
+- `generated_at`
+- `fallback_used`
+- `fallback_reason`
+- `summary` (`risk_summary`, `quantitative_signals`, `recommended_actions`, `watchouts`)
 
 ---
 
@@ -582,6 +616,17 @@ A clean demo should follow this story:
 4. explain the risk score and major drivers
 5. compare that patient with similar historical cases
 6. show the AI-generated summary and recommended actions
+
+### Demo Script (API)
+
+1. Start API server: `uvicorn app.main:app --reload`
+2. Fetch one high-risk patient ID:
+   - `GET /patients/high-risk?preset=baseline&limit=1`
+3. Call `POST /ai/patient-summary` for that patient.
+4. Confirm scoring evidence:
+   - `fallback_used` is `false` (real OpenAI path)
+   - response includes actionable recommendations and quantitative signals
+5. Reliability check (optional): unset `OPENAI_API_KEY` and call again to show deterministic fallback with `fallback_used=true`.
 
 ### Demo Message
 The system is not just predicting risk.  

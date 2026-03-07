@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Query
 
 from app.config import PRESET_CONFIGS
 from app.schemas import (
+    AIPatientSummaryRequest,
+    AIPatientSummaryResponse,
     AuditResponse,
     DatasetArtifact,
     DatasetSummary,
@@ -14,7 +16,9 @@ from app.schemas import (
     PredictionSummaryResponse,
     TrainModelRequest,
 )
+from app.services.ai_summary import generate_patient_summary
 from app.services.audit import run_system_audit
+from app.services.database import test_database_connection
 from app.services.integrations import database_status, llm_status
 from app.services.modeling import load_prediction_summary, train_baseline_model
 from app.services.repository import (
@@ -183,3 +187,21 @@ async def patient_similar_cases(
         raise HTTPException(status_code=404, detail=f"Unknown patient '{patient_id}'") from exc
 
     return {"preset": preset, "patient_id": patient_id, "similar_cases": similar_cases}
+
+
+@app.post("/ai/patient-summary", response_model=AIPatientSummaryResponse)
+async def ai_patient_summary(request: AIPatientSummaryRequest) -> AIPatientSummaryResponse:
+    try:
+        summary = generate_patient_summary(
+            preset=request.preset,
+            patient_id=request.patient_id,
+            temperature=request.temperature,
+            max_output_tokens=request.max_output_tokens,
+            timeout_seconds=request.timeout_seconds,
+        )
+    except PresetNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=f"Unknown preset '{request.preset}'") from exc
+    except PatientNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Unknown patient '{request.patient_id}'") from exc
+
+    return AIPatientSummaryResponse(**summary)

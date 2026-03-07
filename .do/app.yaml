@@ -67,6 +67,10 @@ services:
       - key: OPENAI_MODEL
         value: gpt-4o-mini
         scope: RUN_TIME
+      - key: OPENAI_API_KEY
+        value: ${OPENAI_API_KEY}
+        type: SECRET
+        scope: RUN_TIME
 ingress:
   rules:
     - match:
