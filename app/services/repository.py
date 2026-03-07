@@ -82,8 +82,23 @@ def load_from_supabase(preset: str | None = None) -> pd.DataFrame | None:
             if df.empty:
                 return None
         # Derive columns expected by downstream code
-        if "predicted_readmission_probability" not in df.columns:
-            df["predicted_readmission_probability"] = df.get("simulated_readmission_probability", 0.0)
+        if "predicted_readmission_probability" not in df.columns or df["predicted_readmission_probability"].isna().all():
+            # Recompute risk probability using the same logistic formula as simulator
+            risk_linear = (
+                -4.4
+                + (df["age"] >= 75).astype(float) * 0.5
+                + df["chronic_conditions_count"] * 0.22
+                + df["prior_admissions_12m"] * 0.34
+                + df["severity_score"] * 0.24
+                + df["icu_flag"] * 0.5
+                + df["length_of_stay"] * 0.08
+                + df["abnormal_vitals_flag"] * 0.72
+                + (1 - df["followup_scheduled"]) * 0.48
+                + df["transportation_barrier"] * 0.52
+                + df["missed_appointments_history"] * 0.14
+                + df["living_alone"] * 0.18
+            )
+            df["predicted_readmission_probability"] = np.round(1.0 / (1.0 + np.exp(-risk_linear)), 4)
         df["active_risk_probability"] = pd.to_numeric(
             df["predicted_readmission_probability"], errors="coerce"
         ).fillna(0.0)
