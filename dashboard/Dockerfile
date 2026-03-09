@@ -16,7 +16,6 @@ COPY data ./data
 COPY docs ./docs
 COPY README.md ./README.md
 COPY pytest.ini ./pytest.ini
-COPY .env ./.env
 COPY .env.example ./.env.example
 
 EXPOSE 8080

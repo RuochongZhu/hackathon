@@ -1,56 +1,77 @@
-# Deployment Guide
+# DigitalOcean Deployment Guide (From Scratch)
 
-## Automation Approach
+This guide resets deployment to a clean baseline and deploys only the dashboard web app first.
 
-This project uses:
+## What Was Cleaned
 
-- `Dockerfile` for containerized runtime
-- `.do/app.yaml` for a two-service DigitalOcean App Platform spec (`dashboard` + `api`)
-- `.github/workflows/ci.yml` for test checks
-- `.github/workflows/deploy.yml` for automatic deployment after passing tests on `main`
+- Removed old DigitalOcean app spec at `.do/app.yaml`
+- Removed old Render config at `render.yaml`
+- Removed old GitHub auto-deploy workflow at `.github/workflows/deploy.yml`
+- Removed `.env` hard dependency from both Dockerfiles so cloud build won't fail when `.env` is not committed
 
-## Required GitHub Secrets
+## Current Deployment Files
 
-Add these repository secrets before deployment:
+- App spec: `deploy/digitalocean/app-dashboard.yaml`
+- Dashboard container: `dashboard/Dockerfile`
 
-- `DIGITALOCEAN_ACCESS_TOKEN`: DigitalOcean personal access token for App Platform deployment automation
-- `OPENAI_API_KEY`: server-side OpenAI key (used by both `api` and `dashboard` services)
-- `DATABASE_URL`: Supabase PostgreSQL connection string
+## 0. Prerequisites
 
-## Optional GitHub Variables
+1. Push this repo to GitHub.
+2. Have a DigitalOcean account with App Platform enabled.
+3. Install doctl (optional but recommended):
 
-If you want a different app name or branch later, update `.github/workflows/deploy.yml`.
+```bash
+brew install doctl
+```
 
-## First-Time Human Steps
+4. Authenticate:
 
-1. Push this repository to GitHub.
-2. In GitHub repository settings, add the three secrets above.
-3. In DigitalOcean, ensure your account has App Platform access.
-4. Complete the one-time GitHub authorization in App Platform by creating any sample app or connecting GitHub once in the control panel.
-5. Run the GitHub Actions workflow `Deploy to DigitalOcean App Platform` once.
-6. Confirm the dashboard loads at `/` and the API responds at `/api/health`.
+```bash
+doctl auth init
+```
 
-## Routing Note (DigitalOcean)
+## 1. Fill App Spec
 
-- The App Platform spec maps `dashboard` to `/` and `api` to `/api` using top-level `ingress.rules` in [`.do/app.yaml`](../.do/app.yaml).
-- In the DigitalOcean UI, use the app URL (or the `dashboard` component URL) for the web page.
-- The `api` component URL will intentionally return API JSON (for example `{"message":"TwinReadmit API is running."}`), which is expected.
-- If `/` still shows API JSON, verify component routes are:
-  - `dashboard`: `/`
-  - `api`: `/api`
-  Then trigger a fresh deployment.
-- API root now includes a `revision` field. If it does not match the latest Git SHA, you are not hitting the newest deployment.
+Edit `deploy/digitalocean/app-dashboard.yaml` and replace:
 
-## Important Security Note
+- `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME`
+- `YOUR_OPENAI_API_KEY`
+- `YOUR_DATABASE_URL`
+- `YOUR_SUPABASE_URL`
+- `YOUR_SUPABASE_ANON_KEY`
+- `YOUR_SUPABASE_SERVICE_ROLE_KEY`
 
-- Do not commit `API.md` or `.env`.
-- Rotate any OpenAI or Supabase service-role keys that were previously shared in plain text.
-- Keep `service_role` keys out of browsers and client-side code.
+If you prefer not to put secrets in file, create app in DigitalOcean UI and add env vars there.
 
+## 2. Create App (CLI)
 
-## Database Note
+```bash
+doctl apps create --spec deploy/digitalocean/app-dashboard.yaml
+```
 
-- `DATABASE_URL` must be a PostgreSQL connection string from the Supabase `Connect` panel, not the project `https://...supabase.co` URL.
-- If direct PostgreSQL DNS is blocked in your runtime, API health and prediction writes automatically fall back to Supabase REST when `SUPABASE_URL` + keys are configured.
-- To enable prediction persistence, create table `public.readmission_predictions` once using [`docs/sql/readmission_predictions.sql`](sql/readmission_predictions.sql).
-- After deployment, verify database config with `/api/database/health`.
+Save returned `app_id`.
+
+## 3. Check Deployment
+
+```bash
+doctl apps list
+doctl apps get <app_id>
+doctl apps logs <app_id> --type build --follow
+doctl apps logs <app_id> --type run --follow
+```
+
+When deployment is healthy, open the app URL from `doctl apps get`.
+
+## 4. Redeploy After Code Change
+
+If `deploy_on_push: true`, pushing `main` triggers deploy automatically.
+
+Manual redeploy:
+
+```bash
+doctl apps create-deployment <app_id>
+```
+
+## 5. Optional: Add API as Second Service Later
+
+After dashboard is stable, add backend API as another service. Keep dashboard-only deployment first to reduce routing complexity.
